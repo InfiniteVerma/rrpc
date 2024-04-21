@@ -1,6 +1,6 @@
-use std::net::TcpStream;
-use std::io::{self, Read, Write};
 use log::info;
+use std::io::{self, Read, Write};
+use std::net::TcpStream;
 
 pub fn init() {
     env_logger::init();

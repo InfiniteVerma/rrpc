@@ -1,1 +1,1 @@
-env RUST_LOG=info cargo test integration
+env RUST_LOG=info cargo test

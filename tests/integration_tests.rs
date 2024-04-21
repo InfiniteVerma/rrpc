@@ -1,35 +1,38 @@
 #[cfg(test)]
 mod tests {
 
-    use rrpc::{server, client}; #[test]
+    use rrpc::{client, server};
+    #[test]
 
-    #[test] 
-    fn test_rpc_integration() {
-    
+    fn setup_server() {
         let _server_handle = std::thread::spawn(|| {
             server::start().unwrap();
         });
-    
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    
-        let expression = "2+4";
-        let resp = client::send(expression).unwrap();
 
-        assert_eq!(resp, "6");
+        std::thread::sleep(std::time::Duration::from_secs(1));
     }
 
-    #[test] 
-    fn test_rpc_integration2() {
-    
-        let _server_handle = std::thread::spawn(|| {
-            server::start().unwrap();
-        });
-    
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    
-        let expression = "22+44";
-        let resp = client::send(expression).unwrap();
+    #[test]
+    fn test_rpc_integration() {
+        let test_cases = vec![
+            ("2+4", "6"),
+            ("2+5", "7"),
+            ("22+15", "37"),
+            // subtract
+            ("5-2", "3"),
+            // multiply
+            ("5*2", "10"),
+            // divide
+            ("5/2", "2"),
+            ("5/0", "Division by zero"),
+        ];
 
-        assert_eq!(resp, "66");
+        setup_server();
+
+        for (input, expected_output) in test_cases {
+            let resp = client::send(input).unwrap();
+
+            assert_eq!(resp, expected_output);
+        }
     }
 }
