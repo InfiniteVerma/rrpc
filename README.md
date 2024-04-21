@@ -10,10 +10,15 @@ V1
  - [x] String parsing
 
 V2
+ - [ ] Pass port as a variable
  - [ ] JSON serialization
  - [ ] User can choose string/json as an option
 
 V3
+ - [ ] Multiple clients
+ - [ ] Proper error handling
+
+V4
  - [ ] Custom functions, signatures of which are available to client and definition in server
  - [ ] How would a user pass this?
 

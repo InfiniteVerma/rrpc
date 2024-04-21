@@ -2,6 +2,9 @@ use log::{info, debug};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
+mod shared;
+use shared::*;
+
 pub fn init() {
     env_logger::init();
 }
@@ -11,7 +14,7 @@ pub fn connect() -> io::Result<TcpStream> {
     TcpStream::connect("127.0.0.1:8080")
 }
 
-pub fn send_sync(expression: &str) -> io::Result<String> {
+pub fn send_sync(expression: &str, type: InputType) -> io::Result<String> {
     debug!("send BEGIN");
 
     let mut stream = TcpStream::connect("127.0.0.1:8080")?;
