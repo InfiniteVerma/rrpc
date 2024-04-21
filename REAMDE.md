@@ -12,3 +12,6 @@ V1
 V2
  - Custom functions, signatures of which are available to client and definition in server
  - How would a user pass this?
+
+#### References
+ - https://doc.rust-lang.org/book/ch20-01-single-threaded.html
