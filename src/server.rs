@@ -2,6 +2,11 @@ use std::net::{TcpListener, TcpStream};
 use std::io::{self, prelude::*};
 use log::info;
 
+enum Operation {
+    Add,
+    Subtract,
+}
+
 pub fn init() {
     env_logger::init();
 }
@@ -42,16 +47,24 @@ fn handle_client(mut stream: TcpStream) -> io::Result<()> {
 
 fn evaluate_expr(expression: &str) -> String {
 
-    let parts: Vec<&str> = expression.trim().trim_matches('\0').split('+').collect();
+    let expression = expression.trim().trim_matches('\0');
     
-    if parts.len() != 2 {
-        return String::from("Invalid expr. Expect <opr1>+<opr2>");
-    }
+    info!("{:#?}", expression);
 
-    if let (Ok(opr1), Ok(opr2)) = (parts[0].parse::<i32>(), parts[1].parse::<i32>()) {
-        let result = opr1 + opr2;
-        return result.to_string();
+    if let Some(index) = expression.find(|c: char| !c.is_numeric()) {
+        info!("{:#?}", index);
+        let (operand1, operand2) = expression.split_at(index);
+
+        // TODO use enum instead of hardcoding Add
+        return evaluate(operand1, operand2, Operation::Add);
     }
 
     String::from("Final return Invalid expr. Expect <opr1>+<opr2>")
+}
+
+fn evaluate(operand1: &str, operand2: &str, operation: Operation) -> String {
+
+    let (operand1, operand2) = (operand1.parse::<i32>().unwrap(), operand2.parse::<i32>().unwrap());
+    let result = operand1 + operand2;
+    return result.to_string();
 }
