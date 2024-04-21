@@ -30,7 +30,7 @@ mod tests {
         setup_server();
 
         for (input, expected_output) in test_cases {
-            let resp = client::send(input).unwrap();
+            let resp = client::send_sync(input).unwrap();
 
             assert_eq!(resp, expected_output);
         }

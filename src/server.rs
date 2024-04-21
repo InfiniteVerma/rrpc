@@ -53,7 +53,7 @@ fn evaluate_expr(expression: &str) -> String {
     let expression = expression.trim().trim_matches('\0');
 
     if let Some(index) = expression.find(|c: char| !c.is_numeric()) {
-        info!("{:#?}", index);
+        debug!("{:#?}", index);
         let (operand1, operand2) = expression.split_at(index);
 
         let op = operand2.chars().next().unwrap();

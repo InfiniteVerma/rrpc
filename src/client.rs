@@ -1,4 +1,4 @@
-use log::info;
+use log::{info, debug};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
@@ -11,17 +11,17 @@ pub fn connect() -> io::Result<TcpStream> {
     TcpStream::connect("127.0.0.1:8080")
 }
 
-pub fn send(expression: &str) -> io::Result<String> {
-    info!("send BEGIN");
+pub fn send_sync(expression: &str) -> io::Result<String> {
+    debug!("send BEGIN");
 
     let mut stream = TcpStream::connect("127.0.0.1:8080")?;
 
-    info!("connected, writing expression to socket: {}", expression);
+    debug!("connected, writing expression to socket: {}", expression);
     stream.write_all(expression.as_bytes())?;
 
     let mut response = String::new();
     stream.read_to_string(&mut response)?;
 
-    info!("received response: {}", response);
+    debug!("received response: {}", response);
     Ok(response)
 }
