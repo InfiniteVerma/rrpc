@@ -1,16 +1,8 @@
 #[cfg(test)]
 mod tests {
 
-    use rrpc::{client, server};
-    #[test]
-
-    fn setup_server() {
-        let _server_handle = std::thread::spawn(|| {
-            server::start().unwrap();
-        });
-
-        std::thread::sleep(std::time::Duration::from_secs(1));
-    }
+    use rrpc::shared::InputType;
+    use rrpc::{client::Client, server::Server};
 
     #[test]
     fn test_rpc_integration() {
@@ -27,10 +19,17 @@ mod tests {
             ("5/0", "Division by zero"),
         ];
 
-        setup_server();
+        let _server_handle = std::thread::spawn(|| {
+            let server = Server::new(InputType::STR, 8080);
+            server.start().unwrap();
+        });
+
+        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        let client = Client::new(InputType::STR, 8080);
 
         for (input, expected_output) in test_cases {
-            let resp = client::send_sync(input).unwrap();
+            let resp = client.send_sync(input).unwrap();
 
             assert_eq!(resp, expected_output);
         }

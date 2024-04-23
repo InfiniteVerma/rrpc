@@ -1,5 +1,5 @@
 #[derive(Debug)]
 pub enum InputType {
-    String,
+    STR,
     JSON,
 }

@@ -3,6 +3,8 @@ use log::{debug, info};
 use std::io::{self, prelude::*};
 use std::net::{TcpListener, TcpStream};
 
+use crate::shared::InputType;
+
 #[derive(Debug)]
 enum Operation {
     Add,
@@ -15,38 +17,55 @@ pub fn init() {
     env_logger::init();
 }
 
-pub fn start() -> io::Result<()> {
-    init();
-
-    debug!("server BEGIN");
-
-    let listener = TcpListener::bind("127.0.0.1:8080")?;
-
-    info!("binded to port ");
-
-    for stream in listener.incoming() {
-        let stream = stream?;
-        handle_client(stream)?;
-    }
-
-    Ok(())
+pub struct Server {
+    input_type: InputType,
+    port: u32,
 }
 
-// main func that parses the request and makes the procedure call
-fn handle_client(mut stream: TcpStream) -> io::Result<()> {
-    debug!("handle_client BEGIN");
+impl Server {
+    pub fn new(input_type: InputType, port: u32) -> Self {
+        Server { input_type, port }
+    }
 
-    let mut buffer = [0; 512];
+    pub fn start(&self) -> io::Result<()> {
+        // TODO find a cleaner way to initialize this
+        init();
 
-    stream.read(&mut buffer)?;
+        debug!("server BEGIN");
 
-    let expr = String::from_utf8_lossy(&buffer[..]);
+        let address = format!("127.0.0.1:{}", self.port);
 
-    let result = evaluate_expr(&expr);
+        let listener = TcpListener::bind(address)?;
 
-    stream.write_all(result.as_bytes())?;
+        info!("binded to port ");
 
-    Ok(())
+        for stream in listener.incoming() {
+            let stream = stream?;
+            self.handle_client(stream)?;
+        }
+
+        Ok(())
+    }
+
+    // main func that parses the request and makes the procedure call
+    fn handle_client(&self, mut stream: TcpStream) -> io::Result<()> {
+        debug!("handle_client BEGIN");
+
+        let mut buffer = [0; 512];
+
+        stream.read(&mut buffer)?;
+
+        let expr = match self.input_type {
+            InputType::STR => String::from_utf8_lossy(&buffer[..]),
+            InputType::JSON => panic!("TODO JSON parsing"),
+        };
+
+        let result = evaluate_expr(&expr);
+
+        stream.write_all(result.as_bytes())?;
+
+        Ok(())
+    }
 }
 
 fn evaluate_expr(expression: &str) -> String {
