@@ -1,6 +1,6 @@
 use core::panic;
 use log::{debug, info};
-use std::io::{self, prelude::*};
+use std::io::{self, prelude::*, ErrorKind};
 use std::net::{TcpListener, TcpStream};
 
 use crate::shared::InputType;
@@ -11,6 +11,12 @@ enum Operation {
     Subtract,
     Multiply,
     Divide,
+}
+
+#[derive(Debug)]
+enum HandleResult {
+    Normal,
+    Kill,
 }
 
 pub fn init() {
@@ -31,7 +37,7 @@ impl Server {
         // TODO find a cleaner way to initialize this
         init();
 
-        debug!("server BEGIN");
+        info!("server BEGIN");
 
         let address = format!("127.0.0.1:{}", self.port);
 
@@ -41,14 +47,27 @@ impl Server {
 
         for stream in listener.incoming() {
             let stream = stream?;
-            self.handle_client(stream)?;
+            // TODO do handle in a separate thread from a pool
+            match self.handle_client(stream) {
+                Ok(HandleResult::Normal) => continue,
+                Ok(HandleResult::Kill) => {
+                    info!("Received KILL cmd, killing");
+                    break;
+                }
+                Err(err_msg) => {
+                    info!(
+                        "Error while evaluating, continuing for next requests. Msg: {}",
+                        err_msg
+                    );
+                }
+            }
         }
 
         Ok(())
     }
 
     // main func that parses the request and makes the procedure call
-    fn handle_client(&self, mut stream: TcpStream) -> io::Result<()> {
+    fn handle_client(&self, mut stream: TcpStream) -> io::Result<HandleResult> {
         debug!("handle_client BEGIN");
 
         let mut buffer = [0; 512];
@@ -60,39 +79,51 @@ impl Server {
             InputType::JSON => panic!("TODO JSON parsing"),
         };
 
-        let result = evaluate_expr(&expr);
+        match self.evaluate_expr(&expr) {
+            Ok(result) => {
+                stream.write_all(result.as_bytes())?;
 
-        stream.write_all(result.as_bytes())?;
+                if result == "KILL" {
+                    return Ok(HandleResult::Kill);
+                }
+            }
+            Err(err_msg) => {
+                return Err(io::Error::new(io::ErrorKind::Other, err_msg));
+            }
+        }
 
-        Ok(())
-    }
-}
-
-fn evaluate_expr(expression: &str) -> String {
-    let expression = expression.trim().trim_matches('\0');
-
-    if let Some(index) = expression.find(|c: char| !c.is_numeric()) {
-        debug!("{:#?}", index);
-        let (operand1, operand2) = expression.split_at(index);
-
-        let op = operand2.chars().next().unwrap();
-
-        let operand2 = &operand2[1..];
-
-        debug!("{:#?}", expression.chars().nth(index));
-
-        let op: Operation = match op {
-            '*' => Operation::Multiply,
-            '+' => Operation::Add,
-            '-' => Operation::Subtract,
-            '/' => Operation::Divide,
-            _ => panic!("Operand {:#?} is not supported", op),
-        };
-
-        return evaluate(operand1, operand2, op);
+        Ok(HandleResult::Normal)
     }
 
-    String::from("Final return Invalid expr. Expect <opr1>+<opr2>")
+    // TODO call diff func on json?
+    fn evaluate_expr(&self, expression: &str) -> Result<String, String> {
+        let expression = expression.trim().trim_matches('\0');
+
+        if expression == "KILL" {
+            return Ok(format!("KILL"));
+        } else if let Some(index) = expression.find(|c: char| !c.is_numeric()) {
+            debug!("{:#?}", index);
+            let (operand1, operand2) = expression.split_at(index);
+
+            let op = operand2.chars().next().unwrap();
+
+            let operand2 = &operand2[1..];
+
+            debug!("{:#?}", expression.chars().nth(index));
+
+            let op: Operation = match op {
+                '*' => Operation::Multiply,
+                '+' => Operation::Add,
+                '-' => Operation::Subtract,
+                '/' => Operation::Divide,
+                _ => return Err(format!("Operand {:#?} is not supported", op)),
+            };
+
+            return Ok(evaluate(operand1, operand2, op));
+        }
+
+        Err(format!("Final return Invalid expr. Expect <opr1>+<opr2>"))
+    }
 }
 
 fn evaluate(operand1: &str, operand2: &str, operation: Operation) -> String {
