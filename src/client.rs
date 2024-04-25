@@ -2,7 +2,7 @@ use log::{debug, info};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use crate::shared::InputType;
+use crate::shared::{InputType, Calculation};
 
 pub fn init() {
     env_logger::init();
@@ -23,6 +23,12 @@ impl Client {
         TcpStream::connect("127.0.0.1:8080")
     }
 
+    pub fn kill(&self) -> io::Result<()> {
+        debug!("send BEGIN");
+        self.send_sync("KILL").unwrap();
+        Ok(())
+    }
+
     pub fn send_sync(&self, expression: &str) -> io::Result<String> {
         debug!("send BEGIN");
 
@@ -34,6 +40,8 @@ impl Client {
         stream.write_all(expression.as_bytes())?;
 
         let mut response = String::new();
+
+        // TODO this will change based on string/JSON
         stream.read_to_string(&mut response)?;
 
         debug!("received response: {}", response);

@@ -68,16 +68,24 @@ impl Server {
 
     // main func that parses the request and makes the procedure call
     fn handle_client(&self, mut stream: TcpStream) -> io::Result<HandleResult> {
-        debug!("handle_client BEGIN");
+        info!("handle_client BEGIN");
 
         let mut buffer = [0; 512];
 
         stream.read(&mut buffer)?;
 
         let expr = match self.input_type {
-            InputType::STR => String::from_utf8_lossy(&buffer[..]),
-            InputType::JSON => panic!("TODO JSON parsing"),
+            InputType::STR => {
+                String::from_utf8_lossy(&buffer[..])
+            },
+            InputType::JSON => {
+                let result = String::from_utf8_lossy(&buffer[..]);
+                println!("{}", result);
+                serde_json::from_str(&result).unwrap()
+            }
         };
+
+        println!("{}", expr);
 
         match self.evaluate_expr(&expr) {
             Ok(result) => {
