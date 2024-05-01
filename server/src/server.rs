@@ -1,9 +1,17 @@
-use core::panic;
-use log::{debug, info};
-use std::io::{self, prelude::*, ErrorKind};
+use log::{debug, info, log};
+use std::io::{self, prelude::*};
 use std::net::{TcpListener, TcpStream};
+use std::sync::{Mutex, Once, ONCE_INIT};
+use std::thread::sleep;
+use std::time::Duration;
 
-use shared::shared::{InputType, Calculation, MsgContentTypes};
+use shared::shared::{InputType, MsgContentTypes};
+
+static INIT_LOGGER: Once = ONCE_INIT;
+static LOGGER_INITIALIZED: Mutex<bool> = Mutex::new(false);
+
+const MAX_RETRIES: usize = 5;
+const RETRY_INTERVAL_MS: u64 = 1000;
 
 #[derive(Debug)]
 enum Operation {
@@ -19,8 +27,15 @@ enum HandleResult {
     Kill,
 }
 
-pub fn init() {
-    env_logger::init();
+pub fn init_logger() {
+    INIT_LOGGER.call_once(|| {
+        let mut initialized = LOGGER_INITIALIZED.lock().unwrap();
+
+        if !*initialized {
+            env_logger::init();
+            *initialized = true;
+        }
+    });
 }
 
 pub struct Server {
@@ -33,15 +48,35 @@ impl Server {
         Server { input_type, port }
     }
 
+    fn try_bind(&self, address: &str) -> Option<TcpListener> {
+        for attempt in 0..MAX_RETRIES {
+            match TcpListener::bind(address) {
+                Ok(listener) => {
+                    info!("Successfully bound to port {} attempt: {}", address, attempt);
+                    Some(listener);
+                }
+                Err(err) => {
+                    info!("Failed to bind to port {}", address);
+                    if attempt < MAX_RETRIES - 1{
+                        info!("Retrying in {} ms ...", RETRY_INTERVAL_MS);
+                        sleep(Duration::from_millis(RETRY_INTERVAL_MS));
+                    }
+                }
+            }
+        }
+        None
+    }
+
     pub fn start(&self) -> io::Result<()> {
         // TODO find a cleaner way to initialize this
-        init();
+        init_logger();
 
         info!("server BEGIN");
 
         let address = format!("127.0.0.1:{}", self.port);
 
         let listener = TcpListener::bind(address)?;
+        //let listener = self.try_bind(&address).unwrap();
 
         info!("binded to port ");
 
@@ -68,7 +103,7 @@ impl Server {
 
     // main func that parses the request and makes the procedure call
     fn handle_client(&self, mut stream: TcpStream) -> io::Result<HandleResult> {
-        info!("handle_client BEGIN msg_type: {:#?}", self.input_type );
+        info!("handle_client BEGIN msg_type: {:#?}", self.input_type);
 
         let mut buffer = [0; 512];
 
@@ -78,7 +113,7 @@ impl Server {
             InputType::STR => {
                 let str_expr = String::from_utf8_lossy(&buffer[..]);
                 self.evaluate_expr(&str_expr)
-            },
+            }
             InputType::JSON => {
                 let str_expr = String::from_utf8_lossy(&buffer[..]);
                 self.evaluate_expr_json(&str_expr)
@@ -111,12 +146,10 @@ impl Server {
         let deserialized: MsgContentTypes = serde_json::from_str(&expression).unwrap();
 
         let expr = match deserialized {
-            MsgContentTypes::Type1(operation_struct) => {
-                operation_struct
-            },
+            MsgContentTypes::Type1(operation_struct) => operation_struct,
             MsgContentTypes::Type2(_) => {
                 // TODO understand the cmd
-                return Ok(format!("KILL"))
+                return Ok(format!("KILL"));
             }
         };
 
@@ -130,7 +163,11 @@ impl Server {
             _ => return Err(format!("Operand {:#?} is not supported", op_char)),
         };
 
-        return Ok(evaluate(&expr.operand1.to_string(), &expr.operand2.to_string(), op));
+        return Ok(evaluate(
+            &expr.operand1.to_string(),
+            &expr.operand2.to_string(),
+            op,
+        ));
     }
 
     // TODO call diff func on json?

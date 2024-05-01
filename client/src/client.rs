@@ -1,6 +1,6 @@
 use log::{debug, info};
 use std::io::{self, Read, Write};
-use std::net::TcpStream;
+use std::net::{Shutdown, TcpStream};
 
 use shared::shared::{InputType, KILL_JSON, KILL_STR};
 
@@ -14,6 +14,7 @@ pub struct Client {
 }
 
 impl Client {
+    // Returns new instance of client
     pub fn new(input_type: InputType, port: u32) -> Self {
         Client { input_type, port }
     }
@@ -50,6 +51,10 @@ impl Client {
         stream.read_to_string(&mut response)?;
 
         debug!("received response: {}", response);
+
+        stream
+            .shutdown(Shutdown::Both)
+            .expect("shutdown call failed");
         Ok(response)
     }
 }
