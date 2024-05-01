@@ -1,0 +1,39 @@
+[
+    {
+        "request" : 
+        {
+            "type": "operation",
+            "operand1": 1,
+            "operand2": 2,
+            "operator": "+"
+        },
+        "expected_response": "3"
+    },
+    {
+        "request": {
+            "type": "operation",
+            "operand1": 1,
+            "operand2": 2,
+            "operator": "-"
+        },
+        "expected_response": "-1"
+    },
+    {
+        "request": {
+            "type": "operation",
+            "operand1": 1,
+            "operand2": 0,
+            "operator": "*"
+        },
+        "expected_response": "0"
+    },
+    {
+        "request": {
+            "type": "operation",
+            "operand1": 1,
+            "operand2": 0,
+            "operator": "/"
+        },
+        "expected_response": "Division by zero" 
+    }
+]

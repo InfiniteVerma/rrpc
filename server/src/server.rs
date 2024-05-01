@@ -3,7 +3,7 @@ use log::{debug, info};
 use std::io::{self, prelude::*, ErrorKind};
 use std::net::{TcpListener, TcpStream};
 
-use shared::shared::InputType;
+use shared::shared::{InputType, Calculation, MsgContentTypes};
 
 #[derive(Debug)]
 enum Operation {
@@ -68,27 +68,26 @@ impl Server {
 
     // main func that parses the request and makes the procedure call
     fn handle_client(&self, mut stream: TcpStream) -> io::Result<HandleResult> {
-        info!("handle_client BEGIN");
+        info!("handle_client BEGIN msg_type: {:#?}", self.input_type );
 
         let mut buffer = [0; 512];
 
         stream.read(&mut buffer)?;
 
-        let expr = match self.input_type {
+        let res = match self.input_type {
             InputType::STR => {
-                String::from_utf8_lossy(&buffer[..])
+                let str_expr = String::from_utf8_lossy(&buffer[..]);
+                self.evaluate_expr(&str_expr)
             },
             InputType::JSON => {
-                let result = String::from_utf8_lossy(&buffer[..]);
-                println!("{}", result);
-                serde_json::from_str(&result).unwrap()
+                let str_expr = String::from_utf8_lossy(&buffer[..]);
+                self.evaluate_expr_json(&str_expr)
             }
         };
 
-        println!("{}", expr);
-
-        match self.evaluate_expr(&expr) {
+        match res {
             Ok(result) => {
+                info!("Found result. Writing back {}", result);
                 stream.write_all(result.as_bytes())?;
 
                 if result == "KILL" {
@@ -101,6 +100,37 @@ impl Server {
         }
 
         Ok(HandleResult::Normal)
+    }
+
+    fn evaluate_expr_json(&self, expression: &str) -> Result<String, String> {
+        // TODO why is this needed?
+        let expression = expression.trim().trim_matches('\0');
+
+        info!("evaluate_expr_json BEGIN {:#?}", expression);
+
+        let deserialized: MsgContentTypes = serde_json::from_str(&expression).unwrap();
+
+        let expr = match deserialized {
+            MsgContentTypes::Type1(operation_struct) => {
+                operation_struct
+            },
+            MsgContentTypes::Type2(_) => {
+                // TODO understand the cmd
+                return Ok(format!("KILL"))
+            }
+        };
+
+        let op_char = expr.operator.chars().next().unwrap();
+        //// TODO make this in below function too
+        let op: Operation = match op_char {
+            '*' => Operation::Multiply,
+            '+' => Operation::Add,
+            '-' => Operation::Subtract,
+            '/' => Operation::Divide,
+            _ => return Err(format!("Operand {:#?} is not supported", op_char)),
+        };
+
+        return Ok(evaluate(&expr.operand1.to_string(), &expr.operand2.to_string(), op));
     }
 
     // TODO call diff func on json?
@@ -119,6 +149,7 @@ impl Server {
 
             debug!("{:#?}", expression.chars().nth(index));
 
+            // TODO make this in below function too
             let op: Operation = match op {
                 '*' => Operation::Multiply,
                 '+' => Operation::Add,

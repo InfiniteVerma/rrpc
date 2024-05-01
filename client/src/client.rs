@@ -2,7 +2,7 @@ use log::{debug, info};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use shared::shared::InputType;
+use shared::shared::{InputType, KILL_JSON, KILL_STR};
 
 pub fn init() {
     env_logger::init();
@@ -25,7 +25,12 @@ impl Client {
 
     pub fn kill(&self) -> io::Result<()> {
         debug!("send BEGIN");
-        self.send_sync("KILL").unwrap();
+
+        match self.input_type {
+            InputType::STR => self.send_sync(KILL_STR).unwrap(),
+            InputType::JSON => self.send_sync(KILL_JSON).unwrap(),
+        };
+
         Ok(())
     }
 

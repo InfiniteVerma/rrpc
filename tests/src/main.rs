@@ -1,14 +1,20 @@
 #[cfg(test)]
 mod tests {
 
-    use shared::shared::{InputType, Calculation};
+    use shared::shared::{Calculation, InputType, MsgContentTypes};
 
     // Import Client and Server structs from client and server modules
     use client::client::Client;
     use server::server::Server;
 
-    use serde_json::{Result, Value};
+    use serde::{Deserialize, Serialize};
     use std::{fs, env};
+
+    #[derive(Debug, Deserialize, Serialize)]
+    struct TestWrapper {
+        request: MsgContentTypes,
+        expected_response: String 
+    }
 
     #[test]
     fn test_rpc_integration_str() {
@@ -45,40 +51,47 @@ mod tests {
         _server_handle.join().unwrap();
     }
 
-    //#[test]
-    //fn test_rpc_integration_json() {
+    #[test]
+    fn test_rpc_integration_json() {
 
-    //    let current_dir = env::current_dir().expect("Failed to get current directory");
+        let current_dir = env::current_dir().expect("Failed to get current directory");
 
-    //    let file_path = current_dir
-    //        .join("tests")
-    //        .join("test.json");
+        let file_path = current_dir
+            .join("data")
+            .join("test.json");
 
-    //    println!("{:?}", file_path);
+        println!("{:?}", file_path);
 
-    //    // Read the contents of the file
-    //    let contents = fs::read_to_string(file_path).expect("Could not read test.json file");
+        // Read the contents of the file
+        let contents = fs::read_to_string(file_path).expect("Could not read test.json file");
 
-    //    let request: Calculation = serde_json::from_str(&contents)
-    //        .expect("Failed to deserialize JSON into calculation struct");
+        let test_requests: Vec<TestWrapper> = serde_json::from_str(&contents)
+            .expect("Failed to deserialize JSON into calculation struct");
 
-    //    let _server_handle = std::thread::spawn(|| {
-    //        let server = Server::new(InputType::JSON, 8080);
-    //        server.start().unwrap();
-    //    });
+        let _server_handle = std::thread::spawn(|| {
+            let server = Server::new(InputType::JSON, 8080);
+            server.start().unwrap();
+        });
 
-    //    std::thread::sleep(std::time::Duration::from_secs(1));
+        std::thread::sleep(std::time::Duration::from_secs(1));
 
-    //    let client = Client::new(InputType::JSON, 8080);
+        let client = Client::new(InputType::JSON, 8080);
 
-    //    println!("Sending to socket");
+        for test_request in test_requests {
+            println!("Sending to socket");
 
-    //    let resp = client.send_sync(&request).unwrap();
+            let request = serde_json::to_string(&test_request.request).unwrap();
 
-    //    assert_eq!(resp, "3");
+            let resp = client.send_sync(&request).unwrap();
 
-    //    client.kill().unwrap();
+            assert_eq!(resp, test_request.expected_response);
+        }
 
-    //    _server_handle.join().unwrap();
-    //}
+
+        client.kill().unwrap();
+
+        _server_handle.join().unwrap();
+    }
 }
+
+fn main() {}

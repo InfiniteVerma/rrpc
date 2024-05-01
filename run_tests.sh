@@ -1,1 +1,1 @@
-env RUST_LOG=info cargo test
+cd tests/ && env RUST_LOG=info cargo test
