@@ -10,9 +10,9 @@ V1
  - [x] String parsing
 
 V2
- - [ ] Pass port as a variable
- - [ ] JSON serialization
- - [ ] User can choose string/json as an option
+ - [x] Pass port as a variable
+ - [x] JSON serialization
+ - [x] User can choose string/json as an option
 
 V3
  - [ ] Multiple clients
