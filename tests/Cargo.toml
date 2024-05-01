@@ -1,12 +1,13 @@
 [package]
-name = "client"
+name = "tests"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-env_logger = "0.11.3"
-log = "0.4.21"
+client = { version = "0.1.0", path = "../client" }
+serde = "1.0.199"
 serde_json = "1.0.116"
+server = { version = "0.1.0", path = "../server" }
 shared = { version = "0.1.0", path = "../shared" }

@@ -3,7 +3,7 @@ use log::{debug, info};
 use std::io::{self, prelude::*, ErrorKind};
 use std::net::{TcpListener, TcpStream};
 
-use crate::shared::InputType;
+use shared::shared::InputType;
 
 #[derive(Debug)]
 enum Operation {

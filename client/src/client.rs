@@ -2,7 +2,7 @@ use log::{debug, info};
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use crate::shared::{InputType, Calculation};
+use shared::shared::InputType;
 
 pub fn init() {
     env_logger::init();
