@@ -48,25 +48,6 @@ impl Server {
         Server { input_type, port }
     }
 
-    fn try_bind(&self, address: &str) -> Option<TcpListener> {
-        for attempt in 0..MAX_RETRIES {
-            match TcpListener::bind(address) {
-                Ok(listener) => {
-                    info!("Successfully bound to port {} attempt: {}", address, attempt);
-                    Some(listener);
-                }
-                Err(err) => {
-                    info!("Failed to bind to port {}", address);
-                    if attempt < MAX_RETRIES - 1{
-                        info!("Retrying in {} ms ...", RETRY_INTERVAL_MS);
-                        sleep(Duration::from_millis(RETRY_INTERVAL_MS));
-                    }
-                }
-            }
-        }
-        None
-    }
-
     pub fn start(&self) -> io::Result<()> {
         // TODO find a cleaner way to initialize this
         init_logger();
@@ -76,7 +57,6 @@ impl Server {
         let address = format!("127.0.0.1:{}", self.port);
 
         let listener = TcpListener::bind(address)?;
-        //let listener = self.try_bind(&address).unwrap();
 
         info!("binded to port ");
 
