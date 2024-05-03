@@ -36,13 +36,17 @@ impl Client {
     }
 
     pub fn send_sync(&self, expression: &str) -> io::Result<String> {
-        debug!("send BEGIN");
+        debug!("send_sync BEGIN");
 
         let address = format!("127.0.0.1:{}", self.port);
 
         let mut stream = TcpStream::connect(address)?;
 
+        // add SYNC as prefix to the expression
+        let expression = format!("SYNC;{}", expression);
+
         debug!("connected, writing expression to socket: {}", expression);
+
         stream.write_all(expression.as_bytes())?;
 
         let mut response = String::new();
@@ -52,9 +56,26 @@ impl Client {
 
         debug!("received response: {}", response);
 
-        stream
-            .shutdown(Shutdown::Both)
-            .expect("shutdown call failed");
+        // TODO is below needed?
+        //stream
+        //    .shutdown(Shutdown::Both)
+        //    .expect("shutdown call failed");
         Ok(response)
+    }
+
+    /// send_async function sends and forgets
+    pub fn send_async(&self, expression: &str) -> Result<(), io::Error> {
+        debug!("send_async BEGIN");
+
+        let address = format!("127.0.0.1:{}", self.port);
+
+        let mut stream = TcpStream::connect(address)?;
+
+        // add ASYNC as prefix to the expression
+        let expression = format!("ASYNC;{}", expression);
+
+        stream.write_all(expression.as_bytes())?;
+
+        Ok(())
     }
 }

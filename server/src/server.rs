@@ -1,17 +1,14 @@
-use log::{debug, info, log};
+use core::panic;
+use log::{debug, info};
 use std::io::{self, prelude::*};
 use std::net::{TcpListener, TcpStream};
-use std::sync::{Mutex, Once, ONCE_INIT};
-use std::thread::sleep;
-use std::time::Duration;
+use std::sync::{Arc, Mutex, Once, ONCE_INIT};
+use std::thread;
 
-use shared::shared::{InputType, MsgContentTypes};
+use shared::shared::{InputType, MsgContentTypes, RequestType};
 
 static INIT_LOGGER: Once = ONCE_INIT;
 static LOGGER_INITIALIZED: Mutex<bool> = Mutex::new(false);
-
-const MAX_RETRIES: usize = 5;
-const RETRY_INTERVAL_MS: u64 = 1000;
 
 #[derive(Debug)]
 enum Operation {
@@ -22,11 +19,12 @@ enum Operation {
 }
 
 #[derive(Debug)]
-enum HandleResult {
-    Normal,
-    Kill,
+enum RequestResult {
+    Parsed(RequestType, String),
+    Error(io::Error),
 }
 
+// TODO understand this
 pub fn init_logger() {
     INIT_LOGGER.call_once(|| {
         let mut initialized = LOGGER_INITIALIZED.lock().unwrap();
@@ -36,6 +34,53 @@ pub fn init_logger() {
             *initialized = true;
         }
     });
+}
+
+// worker thread requests?
+struct Worker {
+    id: usize,
+    shared_requests: Arc<Mutex<Vec<TcpStream>>>,
+}
+
+impl Worker {
+    fn new(id: usize, shared_requests: Arc<Mutex<Vec<TcpStream>>>) -> Self {
+        Worker {
+            id,
+            shared_requests,
+        }
+    }
+
+    fn start(self) {
+        let shared_requests_clone = Arc::clone(&self.shared_requests);
+        info!("starting worker thread: {}", self.id);
+
+        thread::spawn(move || loop {
+            info!("starting worker thread: {} looping", self.id);
+            let request = {
+                let mut requests = shared_requests_clone.lock().unwrap();
+                if let Some(stream) = requests.pop() {
+                    info!("starting worker thread: {} looping found stream", self.id);
+                    stream
+                } else {
+                    break;
+                }
+            };
+
+            info!(
+                "starting worker thread: {} calling process_request",
+                self.id
+            );
+            self.process_request(request);
+        });
+    }
+
+    fn process_request(&self, stream: TcpStream) {
+        println!(
+            "Worker {} processing a request from {:?}",
+            self.id,
+            stream.peer_addr().unwrap()
+        );
+    }
 }
 
 pub struct Server {
@@ -49,8 +94,17 @@ impl Server {
     }
 
     pub fn start(&self) -> io::Result<()> {
-        // TODO find a cleaner way to initialize this
         init_logger();
+
+        let shared_requests: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
+
+        let mut worker_handles = vec![];
+
+        for worker_id in 0..1 {
+            let shared_requests_clone = Arc::clone(&shared_requests);
+            let worker = Worker::new(worker_id, shared_requests_clone);
+            worker_handles.push(thread::spawn(move || worker.start()));
+        }
 
         info!("server BEGIN");
 
@@ -60,61 +114,113 @@ impl Server {
 
         info!("binded to port ");
 
+        // check if stream contains a sync request or async request
+        // if sync: use blocking and return a response
+        // else: idk
         for stream in listener.incoming() {
-            let stream = stream?;
+            //info!("adding to list");
+            //shared_requests.lock().unwrap().push(stream?);
+            //info!("added to list");
+
             // TODO do handle in a separate thread from a pool
-            match self.handle_client(stream) {
-                Ok(HandleResult::Normal) => continue,
-                Ok(HandleResult::Kill) => {
-                    info!("Received KILL cmd, killing");
-                    break;
-                }
-                Err(err_msg) => {
+            let stream = stream?;
+
+            // duplicating stream for write. TODO try blocking the other action in both streams?
+            let mut write_stream = stream.try_clone().expect("Failed to clone TcpStream");
+
+            let request = self.parse_request(stream);
+
+            match request {
+                RequestResult::Parsed(request_type, request) => {
                     info!(
-                        "Error while evaluating, continuing for next requests. Msg: {}",
-                        err_msg
+                        "Parsed request with type: {:#?} and request: {}",
+                        request_type, request
                     );
+
+                    let response = self.handle_request(request);
+
+                    match response {
+                        Ok(res) => {
+                            info!("Found response: {}", res);
+
+                            match request_type {
+                                RequestType::SYNC => {
+                                    info!("Found result. Writing back {}", res);
+
+                                    if res == "KILL" {
+                                        info!("Received KILL cmd, killing");
+                                        break;
+                                    }
+
+                                    write_stream.write_all(res.as_bytes())?;
+                                }
+                                RequestType::ASYNC => {
+                                    info!("Found result {}, but not sending response back", res);
+                                }
+                            }
+                        }
+                        Err(err) => info!("{}", err),
+                    }
+                }
+                RequestResult::Error(err) => {
+                    info!("Found err: {}", err);
                 }
             }
+        }
+
+        drop(shared_requests);
+
+        for handle in worker_handles {
+            handle.join().unwrap();
         }
 
         Ok(())
     }
 
-    // main func that parses the request and makes the procedure call
-    fn handle_client(&self, mut stream: TcpStream) -> io::Result<HandleResult> {
-        info!("handle_client BEGIN msg_type: {:#?}", self.input_type);
+    fn parse_request(&self, mut stream: TcpStream) -> RequestResult {
+        debug!("parse_request BEGIN msg_type: {:#?}", self.input_type);
 
         let mut buffer = [0; 512];
 
-        stream.read(&mut buffer)?;
+        match stream.read(&mut buffer) {
+            Ok(bytes_read) => {
+                let request_str = String::from_utf8_lossy(&buffer[..]).into_owned();
 
-        let res = match self.input_type {
-            InputType::STR => {
-                let str_expr = String::from_utf8_lossy(&buffer[..]);
-                self.evaluate_expr(&str_expr)
-            }
-            InputType::JSON => {
-                let str_expr = String::from_utf8_lossy(&buffer[..]);
-                self.evaluate_expr_json(&str_expr)
-            }
-        };
+                debug!("parse_request request: {:#?}", request_str);
 
-        match res {
-            Ok(result) => {
-                info!("Found result. Writing back {}", result);
-                stream.write_all(result.as_bytes())?;
-
-                if result == "KILL" {
-                    return Ok(HandleResult::Kill);
+                if request_str.starts_with("SYNC;") {
+                    RequestResult::Parsed(
+                        RequestType::SYNC,
+                        String::from(request_str.split_at(5).1),
+                    )
+                } else if request_str.starts_with("ASYNC;") {
+                    RequestResult::Parsed(
+                        RequestType::ASYNC,
+                        String::from(request_str.split_at(6).1),
+                    )
+                } else {
+                    RequestResult::Error(io::Error::new(
+                        io::ErrorKind::Other,
+                        "Could not find SYNC or ASYNC",
+                    ))
                 }
             }
-            Err(err_msg) => {
-                return Err(io::Error::new(io::ErrorKind::Other, err_msg));
-            }
+            Err(err) => RequestResult::Error(err),
         }
+    }
 
-        Ok(HandleResult::Normal)
+    // main func that parses the request and makes the procedure call
+    fn handle_request(&self, request: String) -> Result<String, String> {
+        info!("handle_client BEGIN msg_type: {:#?}", self.input_type);
+
+        let res = match self.input_type {
+            InputType::STR => self.evaluate_expr(&request),
+            InputType::JSON => self.evaluate_expr_json(&request),
+        };
+
+        res
+
+        //Ok(HandleResult::Normal)
     }
 
     fn evaluate_expr_json(&self, expression: &str) -> Result<String, String> {

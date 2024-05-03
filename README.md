@@ -15,12 +15,19 @@ V2
  - [x] User can choose string/json as an option
 
 V3
- - [ ] Multiple clients
+ - [ ] Multiple clients. To speed up, server listens and swaps a short lived thread to execute each request from a pool?
  - [ ] Proper error handling
+
+V3.5
+ - [ ] Refactor. Try to understand more about designing code in rust.
 
 V4
  - [ ] Custom functions, signatures of which are available to client and definition in server
  - [ ] How would a user pass this?
+ - [ ] Horizontal and vertical scaling?
+
+V5
+ - [ ] Do computation in parts and then aggregate?
 
 #### Design
 
@@ -73,3 +80,4 @@ server
 
 #### References
  - https://doc.rust-lang.org/book/ch20-01-single-threaded.html
+ - https://doc.rust-lang.org/book
