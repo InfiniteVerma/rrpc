@@ -13,7 +13,7 @@ pub enum RequestType {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(tag = "type", content = "request_type")]
+#[serde(tag = "type")]
 pub enum MsgContentTypes {
     #[serde(rename = "operation")]
     Type1(Calculation),
@@ -32,13 +32,20 @@ pub struct Calculation {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Command {
     pub cmd: String,
-    pub operation_type: RequestType,
+    pub request_type: RequestType,
 }
 
 pub const KILL_JSON: &str = "
 {
     \"type\": \"command\",
-    \"cmd\": \"KILL\"
+    \"cmd\": \"KILL\",
+    \"request_type\": \"SYNC\"
 }";
 
 pub const KILL_STR: &str = "KILL";
+
+#[derive(Debug, Deserialize, Serialize)]
+struct TestWrapper {
+    request: MsgContentTypes,
+    expected_response: String,
+}

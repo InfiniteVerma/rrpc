@@ -43,7 +43,10 @@ impl Client {
         let mut stream = TcpStream::connect(address)?;
 
         // add SYNC as prefix to the expression
-        let expression = format!("SYNC;{}", expression);
+        let expression = match self.input_type {
+            InputType::STR => format!("SYNC;{}", expression),
+            InputType::JSON => format!("{}", expression), // TODO
+        };
 
         debug!("connected, writing expression to socket: {}", expression);
 
@@ -72,7 +75,10 @@ impl Client {
         let mut stream = TcpStream::connect(address)?;
 
         // add ASYNC as prefix to the expression
-        let expression = format!("ASYNC;{}", expression);
+        let expression = match self.input_type {
+            InputType::STR => format!("ASYNC;{}", expression),
+            InputType::JSON => format!("{}", expression), // TODO
+        };
 
         stream.write_all(expression.as_bytes())?;
 

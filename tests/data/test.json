@@ -2,11 +2,11 @@
     {
         "request" : 
         {
-            "request_type": "SYNC",
             "type": "operation",
             "operand1": 1,
             "operand2": 2,
-            "operator": "+"
+            "operator": "+",
+            "request_type": "SYNC"
         },
         "expected_response": "3"
     },

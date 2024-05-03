@@ -5,7 +5,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex, Once, ONCE_INIT};
 use std::thread;
 
-use shared::shared::{InputType, MsgContentTypes, RequestType};
+use shared::shared::{Calculation, Command, InputType, MsgContentTypes, RequestType};
 
 static INIT_LOGGER: Once = ONCE_INIT;
 static LOGGER_INITIALIZED: Mutex<bool> = Mutex::new(false);
@@ -20,7 +20,9 @@ enum Operation {
 
 #[derive(Debug)]
 enum RequestResult {
-    Parsed(RequestType, String),
+    ParsedStr(RequestType, String),
+    ParsedJSONCalculation(RequestType, Calculation),
+    ParsedJSONCommand(RequestType, Command),
     Error(io::Error),
 }
 
@@ -130,41 +132,55 @@ impl Server {
 
             let request = self.parse_request(stream);
 
-            match request {
-                RequestResult::Parsed(request_type, request) => {
+            let (response, req_type) = match request {
+                RequestResult::ParsedStr(request_type, request) => {
                     info!(
                         "Parsed request with type: {:#?} and request: {}",
                         request_type, request
                     );
 
-                    let response = self.handle_request(request);
+                    let response = self.evaluate_expr(&request);
 
-                    match response {
-                        Ok(res) => {
-                            info!("Found response: {}", res);
+                    (response, request_type)
+                },
+                RequestResult::ParsedJSONCalculation(request_type, request) => {
+                    info!("Parsed json type: {:#?}, request: {:#?}", request_type, request);
 
-                            match request_type {
-                                RequestType::SYNC => {
-                                    info!("Found result. Writing back {}", res);
+                    let response = self.evaluate_expr_json(&request);
 
-                                    if res == "KILL" {
-                                        info!("Received KILL cmd, killing");
-                                        break;
-                                    }
-
-                                    write_stream.write_all(res.as_bytes())?;
-                                }
-                                RequestType::ASYNC => {
-                                    info!("Found result {}, but not sending response back", res);
-                                }
-                            }
-                        }
-                        Err(err) => info!("{}", err),
-                    }
-                }
+                    (response, request_type)
+                },
+                RequestResult::ParsedJSONCommand(request_type, request) => {
+                    info!("Got a command. Killing for now! TODO ");
+                    break;
+                },
                 RequestResult::Error(err) => {
                     info!("Found err: {}", err);
+                    continue;
                 }
+            };
+
+            match response {
+                Ok(res) => {
+                    info!("Found response: {}", res);
+
+                    match req_type {
+                        RequestType::SYNC => {
+                            info!("Found result. Writing back {}", res);
+
+                            if res == "KILL" {
+                                info!("Received KILL cmd, killing");
+                                break;
+                            }
+
+                            write_stream.write_all(res.as_bytes())?;
+                        }
+                        RequestType::ASYNC => {
+                            info!("Found result {}, but not sending response back", res);
+                        }
+                    }
+                }
+                Err(err) => info!("{}", err),
             }
         }
 
@@ -184,62 +200,71 @@ impl Server {
 
         match stream.read(&mut buffer) {
             Ok(bytes_read) => {
+                info!("Bytes read: {}", bytes_read);
+
                 let request_str = String::from_utf8_lossy(&buffer[..]).into_owned();
 
                 debug!("parse_request request: {:#?}", request_str);
 
-                if request_str.starts_with("SYNC;") {
-                    RequestResult::Parsed(
-                        RequestType::SYNC,
-                        String::from(request_str.split_at(5).1),
-                    )
-                } else if request_str.starts_with("ASYNC;") {
-                    RequestResult::Parsed(
-                        RequestType::ASYNC,
-                        String::from(request_str.split_at(6).1),
-                    )
-                } else {
-                    RequestResult::Error(io::Error::new(
-                        io::ErrorKind::Other,
-                        "Could not find SYNC or ASYNC",
-                    ))
+                match self.input_type {
+                    InputType::STR => {
+                        if request_str.starts_with("SYNC;") {
+                            RequestResult::ParsedStr(
+                                RequestType::SYNC,
+                                String::from(request_str.split_at(5).1),
+                            )
+                        } else if request_str.starts_with("ASYNC;") {
+                            RequestResult::ParsedStr(
+                                RequestType::ASYNC,
+                                String::from(request_str.split_at(6).1),
+                            )
+                        } else {
+                            RequestResult::Error(io::Error::new(
+                                io::ErrorKind::Other,
+                                "Could not find SYNC or ASYNC",
+                            ))
+                        }
+                    }
+                    InputType::JSON => {
+                        // TODO parse json. find if it's SYNC or ASYNC. Convert and send back in json?
+                        let request = request_str.trim().trim_matches('\0');
+
+                        info!("parse_request JSON {:#?}", request);
+
+                        let deserialized: MsgContentTypes = serde_json::from_str(&request).unwrap();
+
+                        debug!("Deserialized: deserialized: {:#?}", deserialized);
+
+                        let operation = match deserialized {
+                            MsgContentTypes::Type1(op) => op,
+                            MsgContentTypes::Type2(cmd) => {
+                                return RequestResult::ParsedJSONCommand(RequestType::SYNC, cmd);
+                            }
+                        };
+
+                        match operation.request_type {
+                            RequestType::SYNC => {
+                                RequestResult::ParsedJSONCalculation(RequestType::SYNC, operation)
+                            }
+                            RequestType::ASYNC => {
+                                RequestResult::ParsedJSONCalculation(RequestType::ASYNC, operation)
+                            }
+                        }
+                    }
                 }
             }
             Err(err) => RequestResult::Error(err),
         }
     }
 
-    // main func that parses the request and makes the procedure call
-    fn handle_request(&self, request: String) -> Result<String, String> {
-        info!("handle_client BEGIN msg_type: {:#?}", self.input_type);
-
-        let res = match self.input_type {
-            InputType::STR => self.evaluate_expr(&request),
-            InputType::JSON => self.evaluate_expr_json(&request),
-        };
-
-        res
-
-        //Ok(HandleResult::Normal)
-    }
-
-    fn evaluate_expr_json(&self, expression: &str) -> Result<String, String> {
+    fn evaluate_expr_json(&self, expr: &Calculation) -> Result<String, String> {
         // TODO why is this needed?
-        let expression = expression.trim().trim_matches('\0');
+        //let expression = expression.trim().trim_matches('\0');
 
-        info!("evaluate_expr_json BEGIN {:#?}", expression);
-
-        let deserialized: MsgContentTypes = serde_json::from_str(&expression).unwrap();
-
-        let expr = match deserialized {
-            MsgContentTypes::Type1(operation_struct) => operation_struct,
-            MsgContentTypes::Type2(_) => {
-                // TODO understand the cmd
-                return Ok(format!("KILL"));
-            }
-        };
+        info!("evaluate_expr_json BEGIN {:#?}", expr);
 
         let op_char = expr.operator.chars().next().unwrap();
+
         //// TODO make this in below function too
         let op: Operation = match op_char {
             '*' => Operation::Multiply,
