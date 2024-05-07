@@ -20,9 +20,10 @@ enum Operation {
 
 #[derive(Debug)]
 enum RequestResult {
-    ParsedStr(RequestType, String),
-    ParsedJSONCalculation(RequestType, Calculation),
-    ParsedJSONCommand(RequestType, Command),
+    ParsedStr(String),
+    ParsedStrCommand(String),
+    ParsedJSONCalculation(Calculation),
+    ParsedJSONCommand(Command),
     Error(io::Error),
 }
 
@@ -54,34 +55,40 @@ impl Worker {
 
     fn start(self) {
         let shared_requests_clone = Arc::clone(&self.shared_requests);
-        info!("starting worker thread: {}", self.id);
+        debug!("starting worker thread: {}", self.id);
 
         thread::spawn(move || loop {
-            info!("starting worker thread: {} looping", self.id);
-            let request = {
-                let mut requests = shared_requests_clone.lock().unwrap();
-                if let Some(stream) = requests.pop() {
-                    info!("starting worker thread: {} looping found stream", self.id);
-                    stream
-                } else {
-                    break;
-                }
-            };
+            debug!("starting worker thread: {} looping", self.id);
+            let mut requests = shared_requests_clone.lock().unwrap();
 
-            info!(
-                "starting worker thread: {} calling process_request",
-                self.id
-            );
-            self.process_request(request);
+            if requests.len() != 0 {
+                info!("Worker {} requests.size(): {}", self.id, requests.len());
+            }
+
+            let request = requests.pop();
+            match request {
+                Some(req) => {
+                    info!("Worker {} executing request", self.id);
+                    self.process_request(req);
+                }
+                idk => {
+                    debug!(
+                        "Worker {} Didn't find Some, continuing the loop {:#?}",
+                        self.id, idk
+                    );
+                }
+            }
         });
     }
 
+    // TODO
     fn process_request(&self, stream: TcpStream) {
-        println!(
+        info!(
             "Worker {} processing a request from {:?}",
             self.id,
             stream.peer_addr().unwrap()
         );
+
     }
 }
 
@@ -96,11 +103,16 @@ impl Server {
     }
 
     pub fn start(&self) -> io::Result<()> {
+        info!("server BEGIN");
+
         init_logger();
 
+        // TODO instead of pushing raw streams, push the request_result val?
         let shared_requests: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
 
         let mut worker_handles = vec![];
+
+        info!("spawning worker threads");
 
         for worker_id in 0..1 {
             let shared_requests_clone = Arc::clone(&shared_requests);
@@ -108,79 +120,81 @@ impl Server {
             worker_handles.push(thread::spawn(move || worker.start()));
         }
 
-        info!("server BEGIN");
-
         let address = format!("127.0.0.1:{}", self.port);
 
         let listener = TcpListener::bind(address)?;
-
         info!("binded to port ");
 
         // check if stream contains a sync request or async request
         // if sync: use blocking and return a response
         // else: idk
         for stream in listener.incoming() {
-            //info!("adding to list");
-            //shared_requests.lock().unwrap().push(stream?);
-            //info!("added to list");
+            info!("found new stream");
 
-            // TODO do handle in a separate thread from a pool
             let stream = stream?;
 
-            // duplicating stream for write. TODO try blocking the other action in both streams?
             let mut write_stream = stream.try_clone().expect("Failed to clone TcpStream");
+            let mut stream_for_thread = stream.try_clone().expect("Failed to clone TcpStream");
 
-            let request = self.parse_request(stream);
+            // if async, send the message to list
+            // duplicating stream for write. TODO try blocking the other action in both streams?
+            let (request_type, request_result) = self.parse_request(stream);
 
-            let (response, req_type) = match request {
-                RequestResult::ParsedStr(request_type, request) => {
-                    info!(
-                        "Parsed request with type: {:#?} and request: {}",
-                        request_type, request
-                    );
+            // else, execute and return here only
+            let response: Result<String, String> = match request_type {
+                RequestType::SYNC => {
+                    // if command == KILL == break
+                    // else execute evaluate_expr
+                    let response = match request_result {
+                        RequestResult::ParsedStrCommand(cmd) => {
+                            info!("Parsed request with request: {}", cmd);
 
-                    let response = self.evaluate_expr(&request);
+                            break;
+                        }
+                        RequestResult::ParsedStr(request) => {
+                            info!("Parsed request with request: {}", request);
 
-                    (response, request_type)
-                },
-                RequestResult::ParsedJSONCalculation(request_type, request) => {
-                    info!("Parsed json type: {:#?}, request: {:#?}", request_type, request);
+                            let response = self.evaluate_expr(&request);
 
-                    let response = self.evaluate_expr_json(&request);
+                            info!("evaluate_expr returns: {:#?}", response);
 
-                    (response, request_type)
-                },
-                RequestResult::ParsedJSONCommand(request_type, request) => {
-                    info!("Got a command. Killing for now! TODO ");
-                    break;
-                },
-                RequestResult::Error(err) => {
-                    info!("Found err: {}", err);
+                            response
+                        }
+                        RequestResult::ParsedJSONCalculation(request) => {
+                            info!("Parsed json request: {:#?}", request);
+
+                            let response = self.evaluate_expr_json(&request);
+
+                            response
+                        }
+                        RequestResult::ParsedJSONCommand(request) => {
+                            info!("Got a command. Killing for now! TODO ");
+                            break;
+                        }
+                        RequestResult::Error(err) => {
+                            info!("Found err: {}", err);
+                            continue;
+                        }
+                    };
+
+                    response
+                }
+                RequestType::ASYNC => {
+                    shared_requests.lock().unwrap().push(stream_for_thread);
                     continue;
                 }
             };
 
             match response {
                 Ok(res) => {
-                    info!("Found response: {}", res);
-
-                    match req_type {
-                        RequestType::SYNC => {
-                            info!("Found result. Writing back {}", res);
-
-                            if res == "KILL" {
-                                info!("Received KILL cmd, killing");
-                                break;
-                            }
-
-                            write_stream.write_all(res.as_bytes())?;
-                        }
-                        RequestType::ASYNC => {
-                            info!("Found result {}, but not sending response back", res);
-                        }
-                    }
+                    info!("Found response: {} sending it back", res);
+                    write_stream.write_all(res.as_bytes())?;
+                    debug!("write done");
                 }
-                Err(err) => info!("{}", err),
+                Err(err) => {
+                    info!("Found err: {}", err);
+                    continue;
+                }
             }
         }
 
@@ -193,14 +207,14 @@ impl Server {
         Ok(())
     }
 
-    fn parse_request(&self, mut stream: TcpStream) -> RequestResult {
+    fn parse_request(&self, mut stream: TcpStream) -> (RequestType, RequestResult) {
         debug!("parse_request BEGIN msg_type: {:#?}", self.input_type);
 
         let mut buffer = [0; 512];
 
         match stream.read(&mut buffer) {
             Ok(bytes_read) => {
-                info!("Bytes read: {}", bytes_read);
+                debug!("Bytes read: {}", bytes_read);
 
                 let request_str = String::from_utf8_lossy(&buffer[..]).into_owned();
 
@@ -208,52 +222,57 @@ impl Server {
 
                 match self.input_type {
                     InputType::STR => {
-                        if request_str.starts_with("SYNC;") {
-                            RequestResult::ParsedStr(
+                        if request_str.starts_with("SYNC;KILL") {
+                            (
                                 RequestType::SYNC,
-                                String::from(request_str.split_at(5).1),
+                                RequestResult::ParsedStrCommand(String::from(
+                                    request_str.split_at(5).1,
+                                )),
+                            )
+                        } else if request_str.starts_with("SYNC;") {
+                            (
+                                RequestType::SYNC,
+                                RequestResult::ParsedStr(String::from(request_str.split_at(5).1)),
                             )
                         } else if request_str.starts_with("ASYNC;") {
-                            RequestResult::ParsedStr(
+                            (
                                 RequestType::ASYNC,
-                                String::from(request_str.split_at(6).1),
+                                RequestResult::ParsedStr(String::from(request_str.split_at(6).1)),
                             )
                         } else {
-                            RequestResult::Error(io::Error::new(
-                                io::ErrorKind::Other,
-                                "Could not find SYNC or ASYNC",
-                            ))
+                            // TODO?
+                            (
+                                RequestType::SYNC,
+                                RequestResult::Error(io::Error::new(
+                                    io::ErrorKind::Other,
+                                    "Could not find SYNC or ASYNC",
+                                )),
+                            )
                         }
                     }
                     InputType::JSON => {
-                        // TODO parse json. find if it's SYNC or ASYNC. Convert and send back in json?
                         let request = request_str.trim().trim_matches('\0');
 
-                        info!("parse_request JSON {:#?}", request);
+                        debug!("parse_request JSON {:#?}", request);
 
                         let deserialized: MsgContentTypes = serde_json::from_str(&request).unwrap();
 
                         debug!("Deserialized: deserialized: {:#?}", deserialized);
 
-                        let operation = match deserialized {
-                            MsgContentTypes::Type1(op) => op,
-                            MsgContentTypes::Type2(cmd) => {
-                                return RequestResult::ParsedJSONCommand(RequestType::SYNC, cmd);
-                            }
+                        return match deserialized {
+                            MsgContentTypes::Type1(op) => (
+                                op.request_type.clone(),
+                                RequestResult::ParsedJSONCalculation(op),
+                            ),
+                            MsgContentTypes::Type2(cmd) => (
+                                cmd.request_type.clone(),
+                                RequestResult::ParsedJSONCommand(cmd),
+                            ),
                         };
-
-                        match operation.request_type {
-                            RequestType::SYNC => {
-                                RequestResult::ParsedJSONCalculation(RequestType::SYNC, operation)
-                            }
-                            RequestType::ASYNC => {
-                                RequestResult::ParsedJSONCalculation(RequestType::ASYNC, operation)
-                            }
-                        }
                     }
                 }
             }
-            Err(err) => RequestResult::Error(err),
+            Err(err) => (RequestType::SYNC, RequestResult::Error(err)),
         }
     }
 

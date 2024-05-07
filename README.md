@@ -12,10 +12,11 @@ V1
 V2
  - [x] Pass port as a variable
  - [x] JSON serialization
- - [x] User can choose string/json as an option
+ - [x] User can choose btw string/json at init time
 
 V3
- - [ ] Multiple clients. To speed up, server listens and swaps a short lived thread to execute each request from a pool?
+ - [ ] Multiple clients. To speed up, server listens and spawns a short lived thread to execute each request from a pool?
+ - [ ] If sync, server main thread executes and returns. If async, dispatches a worker thread to do the job
  - [ ] Proper error handling
 
 V3.5
@@ -25,6 +26,9 @@ V4
  - [ ] Custom functions, signatures of which are available to client and definition in server
  - [ ] How would a user pass this?
  - [ ] Horizontal and vertical scaling?
+
+V5
+ - [ ] Parse a language instead of simply structs and enums?
 
 V5
  - [ ] Do computation in parts and then aggregate?

@@ -6,7 +6,7 @@ pub enum InputType {
     JSON,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum RequestType {
     SYNC,
     ASYNC,
