@@ -42,11 +42,11 @@ pub fn init_logger() {
 // worker thread requests?
 struct Worker {
     id: usize,
-    shared_requests: Arc<Mutex<Vec<TcpStream>>>,
+    shared_requests: Arc<Mutex<Vec<(RequestType, RequestResult)>>>,
 }
 
 impl Worker {
-    fn new(id: usize, shared_requests: Arc<Mutex<Vec<TcpStream>>>) -> Self {
+    fn new(id: usize, shared_requests: Arc<Mutex<Vec<(RequestType, RequestResult)>>>) -> Self {
         Worker {
             id,
             shared_requests,
@@ -81,14 +81,44 @@ impl Worker {
         });
     }
 
-    // TODO
-    fn process_request(&self, stream: TcpStream) {
+    // TODO do this first
+    fn process_request(&self, (request_type, request_result): (RequestType, RequestResult)) {
         info!(
-            "Worker {} processing a request from {:?}",
-            self.id,
-            stream.peer_addr().unwrap()
+            "Worker {} processing a request type {:?}",
+            self.id, request_type
         );
 
+        match request_type {
+            RequestType::SYNC => panic!("Worker thread doesn't do sync request TODO"),
+            RequestType::ASYNC => match request_result {
+                RequestResult::ParsedStr(req) => {
+                    info!("ASYNC ParsedStr Parsed request with request: {}", req);
+
+                    let response = evaluate_expr(&req);
+
+                    info!("ASYNC evaluate_expr returns: {:#?}", response);
+                }
+                RequestResult::ParsedStrCommand(req) => {
+                    info!(
+                        "ASYNC ParsedStrCommand  Parsed request with request: {}",
+                        req
+                    );
+                }
+                RequestResult::ParsedJSONCommand(req) => {
+                    panic!("ParsedStr not handled in ASYNC context");
+                }
+                RequestResult::ParsedJSONCalculation(req) => {
+                    info!("ASYNC Parsed json request: {:#?}", req);
+
+                    let response = evaluate_expr_json(&req);
+
+                    info!("ASYNC evaluate_expr_json returns: {:#?}", response);
+                }
+                RequestResult::Error(err) => {
+                    info!("{}", err);
+                }
+            },
+        }
     }
 }
 
@@ -107,8 +137,8 @@ impl Server {
 
         init_logger();
 
-        // TODO instead of pushing raw streams, push the request_result val?
-        let shared_requests: Arc<Mutex<Vec<TcpStream>>> = Arc::new(Mutex::new(Vec::new()));
+        let shared_requests: Arc<Mutex<Vec<(RequestType, RequestResult)>>> =
+            Arc::new(Mutex::new(Vec::new()));
 
         let mut worker_handles = vec![];
 
@@ -134,7 +164,6 @@ impl Server {
             let stream = stream?;
 
             let mut write_stream = stream.try_clone().expect("Failed to clone TcpStream");
-            let mut stream_for_thread = stream.try_clone().expect("Failed to clone TcpStream");
 
             // if async, send the message to list
             // duplicating stream for write. TODO try blocking the other action in both streams?
@@ -148,13 +177,12 @@ impl Server {
                     let response = match request_result {
                         RequestResult::ParsedStrCommand(cmd) => {
                             info!("Parsed request with request: {}", cmd);
-
                             break;
                         }
                         RequestResult::ParsedStr(request) => {
                             info!("Parsed request with request: {}", request);
 
-                            let response = self.evaluate_expr(&request);
+                            let response = evaluate_expr(&request);
 
                             info!("evaluate_expr returns: {:#?}", response);
 
@@ -163,7 +191,7 @@ impl Server {
                         RequestResult::ParsedJSONCalculation(request) => {
                             info!("Parsed json request: {:#?}", request);
 
-                            let response = self.evaluate_expr_json(&request);
+                            let response = evaluate_expr_json(&request);
 
                             response
                         }
@@ -180,7 +208,10 @@ impl Server {
                     response
                 }
                 RequestType::ASYNC => {
-                    shared_requests.lock().unwrap().push(stream_for_thread);
+                    shared_requests
+                        .lock()
+                        .unwrap()
+                        .push((request_type, request_result));
                     continue;
                 }
             };
@@ -275,61 +306,6 @@ impl Server {
             Err(err) => (RequestType::SYNC, RequestResult::Error(err)),
         }
     }
-
-    fn evaluate_expr_json(&self, expr: &Calculation) -> Result<String, String> {
-        // TODO why is this needed?
-        //let expression = expression.trim().trim_matches('\0');
-
-        info!("evaluate_expr_json BEGIN {:#?}", expr);
-
-        let op_char = expr.operator.chars().next().unwrap();
-
-        //// TODO make this in below function too
-        let op: Operation = match op_char {
-            '*' => Operation::Multiply,
-            '+' => Operation::Add,
-            '-' => Operation::Subtract,
-            '/' => Operation::Divide,
-            _ => return Err(format!("Operand {:#?} is not supported", op_char)),
-        };
-
-        return Ok(evaluate(
-            &expr.operand1.to_string(),
-            &expr.operand2.to_string(),
-            op,
-        ));
-    }
-
-    // TODO call diff func on json?
-    fn evaluate_expr(&self, expression: &str) -> Result<String, String> {
-        let expression = expression.trim().trim_matches('\0');
-
-        if expression == "KILL" {
-            return Ok(format!("KILL"));
-        } else if let Some(index) = expression.find(|c: char| !c.is_numeric()) {
-            debug!("{:#?}", index);
-            let (operand1, operand2) = expression.split_at(index);
-
-            let op = operand2.chars().next().unwrap();
-
-            let operand2 = &operand2[1..];
-
-            debug!("{:#?}", expression.chars().nth(index));
-
-            // TODO make this in below function too
-            let op: Operation = match op {
-                '*' => Operation::Multiply,
-                '+' => Operation::Add,
-                '-' => Operation::Subtract,
-                '/' => Operation::Divide,
-                _ => return Err(format!("Operand {:#?} is not supported", op)),
-            };
-
-            return Ok(evaluate(operand1, operand2, op));
-        }
-
-        Err(format!("Final return Invalid expr. Expect <opr1>+<opr2>"))
-    }
 }
 
 fn evaluate(operand1: &str, operand2: &str, operation: Operation) -> String {
@@ -357,4 +333,59 @@ fn evaluate(operand1: &str, operand2: &str, operation: Operation) -> String {
         Ok(ans) => ans.to_string(),
         Err(err) => err.to_string(),
     }
+}
+
+fn evaluate_expr_json(expr: &Calculation) -> Result<String, String> {
+    // TODO why is this needed?
+    //let expression = expression.trim().trim_matches('\0');
+
+    info!("evaluate_expr_json BEGIN {:#?}", expr);
+
+    let op_char = expr.operator.chars().next().unwrap();
+
+    //// TODO make this in below function too
+    let op: Operation = match op_char {
+        '*' => Operation::Multiply,
+        '+' => Operation::Add,
+        '-' => Operation::Subtract,
+        '/' => Operation::Divide,
+        _ => return Err(format!("Operand {:#?} is not supported", op_char)),
+    };
+
+    return Ok(evaluate(
+        &expr.operand1.to_string(),
+        &expr.operand2.to_string(),
+        op,
+    ));
+}
+
+// TODO call diff func on json?
+fn evaluate_expr(expression: &str) -> Result<String, String> {
+    let expression = expression.trim().trim_matches('\0');
+
+    if expression == "KILL" {
+        return Ok(format!("KILL"));
+    } else if let Some(index) = expression.find(|c: char| !c.is_numeric()) {
+        debug!("{:#?}", index);
+        let (operand1, operand2) = expression.split_at(index);
+
+        let op = operand2.chars().next().unwrap();
+
+        let operand2 = &operand2[1..];
+
+        debug!("{:#?}", expression.chars().nth(index));
+
+        // TODO make this in below function too
+        let op: Operation = match op {
+            '*' => Operation::Multiply,
+            '+' => Operation::Add,
+            '-' => Operation::Subtract,
+            '/' => Operation::Divide,
+            _ => return Err(format!("Operand {:#?} is not supported", op)),
+        };
+
+        return Ok(evaluate(operand1, operand2, op));
+    }
+
+    Err(format!("Final return Invalid expr. Expect <opr1>+<opr2>"))
 }
