@@ -14,16 +14,18 @@ pub struct Client {
 }
 
 impl Client {
-    // Returns new instance of client
+    /// Returns an instance of Client
     pub fn new(input_type: InputType, port: u32) -> Self {
         Client { input_type, port }
     }
 
     // TODO pass port as variable
+    /// Connects to a server. TODO Isn't used?
     pub fn connect() -> io::Result<TcpStream> {
         TcpStream::connect("127.0.0.1:8080")
     }
 
+    /// Sends a KILL command to stop the server
     pub fn kill(&self) -> io::Result<()> {
         debug!("send BEGIN");
 
@@ -35,6 +37,9 @@ impl Client {
         Ok(())
     }
 
+    /// Sends a SYNC command to the server
+    ///
+    /// This is a blocking call and waits for a response from the server
     pub fn send_sync(&self, expression: &str) -> io::Result<String> {
         debug!("send_sync BEGIN");
 
@@ -66,7 +71,9 @@ impl Client {
         Ok(response)
     }
 
-    /// send_async function sends and forgets
+    /// Sends a ASYNC command to the server
+    ///
+    /// This is a nonblocking call. Client doesn't wait for a response.
     pub fn send_async(&self, expression: &str) -> Result<(), io::Error> {
         debug!("send_async BEGIN");
 

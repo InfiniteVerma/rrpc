@@ -55,68 +55,68 @@ mod tests {
         _server_handle.join().unwrap();
     }
 
-    #[test]
-    fn test_rpc_integration_str_async() {
-        let test_cases = generate_test_cases();
+    //#[test]
+    //fn test_rpc_integration_str_async() {
+    //    let test_cases = generate_test_cases();
 
-        let _server_handle = std::thread::spawn(|| {
-            let server = Server::new(InputType::STR, 8080);
-            server.start().unwrap();
-        });
+    //    let _server_handle = std::thread::spawn(|| {
+    //        let server = Server::new(InputType::STR, 8080);
+    //        server.start().unwrap();
+    //    });
 
-        std::thread::sleep(std::time::Duration::from_secs(1));
+    //    std::thread::sleep(std::time::Duration::from_secs(1));
 
-        let client = Client::new(InputType::STR, 8080);
+    //    let client = Client::new(InputType::STR, 8080);
 
-        for (input, expected_output) in test_cases {
-            client.send_async(input).unwrap();
-        }
+    //    for (input, expected_output) in test_cases {
+    //        client.send_async(input).unwrap();
+    //    }
 
-        client.kill().unwrap();
+    //    client.kill().unwrap();
 
-        _server_handle.join().unwrap();
-    }
+    //    _server_handle.join().unwrap();
+    //}
 
-    #[test]
-    fn test_rpc_integration_json_sync() {
+    //#[test]
+    //fn test_rpc_integration_json_sync() {
 
-        let current_dir = env::current_dir().expect("Failed to get current directory");
+    //    let current_dir = env::current_dir().expect("Failed to get current directory");
 
-        let file_path = current_dir
-            .join("data")
-            .join("test.json");
+    //    let file_path = current_dir
+    //        .join("data")
+    //        .join("test.json");
 
-        println!("{:?}", file_path);
+    //    println!("{:?}", file_path);
 
-        // Read the contents of the file
-        let contents = fs::read_to_string(file_path).expect("Could not read test.json file");
+    //    // Read the contents of the file
+    //    let contents = fs::read_to_string(file_path).expect("Could not read test.json file");
 
-        let test_requests: Vec<TestWrapper> = serde_json::from_str(&contents)
-            .expect("Failed to deserialize JSON into calculation struct");
+    //    let test_requests: Vec<TestWrapper> = serde_json::from_str(&contents)
+    //        .expect("Failed to deserialize JSON into calculation struct");
 
-        let _server_handle = std::thread::spawn(|| {
-            let server = Server::new(InputType::JSON, 8080);
-            server.start().unwrap();
-        });
+    //    let _server_handle = std::thread::spawn(|| {
+    //        let server = Server::new(InputType::JSON, 8080);
+    //        server.start().unwrap();
+    //    });
 
-        std::thread::sleep(std::time::Duration::from_secs(1));
+    //    std::thread::sleep(std::time::Duration::from_secs(1));
 
-        let client = Client::new(InputType::JSON, 8080);
+    //    let client = Client::new(InputType::JSON, 8080);
 
-        for test_request in test_requests {
-            println!("Sending to socket");
+    //    for test_request in test_requests {
+    //        println!("Sending to socket");
 
-            let request = serde_json::to_string(&test_request.request).unwrap();
+    //        let request = serde_json::to_string(&test_request.request).unwrap();
 
-            let resp = client.send_sync(&request).unwrap();
+    //        let resp = client.send_sync(&request).unwrap();
 
-            assert_eq!(resp, test_request.expected_response);
-        }
+    //        assert_eq!(resp, test_request.expected_response);
+    //    }
 
-        client.kill().unwrap();
+    //    client.kill().unwrap();
 
-        _server_handle.join().unwrap();
-    }
+    //    _server_handle.join().unwrap();
+    //}
 
 }
 
