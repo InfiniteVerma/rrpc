@@ -15,11 +15,11 @@ V2
  - [x] User can choose btw string/json at init time
 
 V3
- - [ ] Multiple clients. To speed up, server listens and spawns a short lived thread to execute each request from a pool?
- - [ ] If sync, server main thread executes and returns. If async, dispatches a worker thread to do the job
- - [ ] Proper error handling
+ - [x] Multiple clients. To speed up, server listens and spawns a short lived thread to execute each request from a pool?
+ - [x] If sync, server main thread executes and returns. If async, dispatches a worker thread to do the job
 
 V3.5
+ - [ ] Proper error handling
  - [ ] Refactor. Try to understand more about designing code in rust.
 
 V4
