@@ -23,15 +23,22 @@ V3.5
  - [ ] Refactor. Try to understand more about designing code in rust.
 
 V4
+ - [ ] Read a .txt file that contains custom functions signatures. Client will call them and in server, user will define them.
+ - [ ] They should implement pack and unpack trait
+
+V5
  - [ ] Custom functions, signatures of which are available to client and definition in server
  - [ ] How would a user pass this?
  - [ ] Horizontal and vertical scaling?
 
-V5
+V6
  - [ ] Parse a language instead of simply structs and enums?
 
-V5
+V6
  - [ ] Do computation in parts and then aggregate?
+
+V7
+ - [ ] Example project using the rpc crate
 
 #### Design
 
