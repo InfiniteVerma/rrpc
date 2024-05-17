@@ -7,7 +7,7 @@ use std::thread;
 
 use shared::shared::{Calculation, Command, InputType, MsgContentTypes, RequestType};
 
-use crate::execution::RequestResult;
+use crate::execution::{RequestResult, evaluate_expr, evaluate_expr_json};
 
 static INIT_LOGGER: Once = ONCE_INIT;
 static LOGGER_INITIALIZED: Mutex<bool> = Mutex::new(false);
@@ -124,6 +124,7 @@ impl Server {
             let (request_type, request_result) = self.parse_request(stream);
 
             // else, execute and return here only
+            // TODO this is repeated code. execution.rs also has it
             let response: Result<String, String> = match request_type {
                 RequestType::SYNC => {
                     // if command == KILL == break

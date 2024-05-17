@@ -1,5 +1,6 @@
 use shared::shared::{Calculation, Command, InputType, MsgContentTypes, RequestType};
 use log::{debug, info};
+use core::panic;
 use std::io::{self};
 
 #[derive(Debug)]
@@ -22,9 +23,48 @@ pub enum RequestResult {
 impl RequestResult {
     pub fn evaluate(&self, request_type: RequestType) -> Result<String, String> { 
         let response = match request_type {
-            RequestType::SYNC => {},
-            RequestType::ASYNC => {},
-        }
+            RequestType::SYNC => {
+
+                let response = match self {
+                    RequestResult::ParsedStrCommand(cmd) => {
+                        info!("Parsed request with request: {}", cmd);
+                        panic!("TODO");
+                    }
+                    RequestResult::ParsedStr(request) => {
+                        info!("Parsed request with request: {}", request);
+
+                        let response = evaluate_expr(&request);
+
+                        info!("evaluate_expr returns: {:#?}", response);
+
+                        response
+                    }
+                    RequestResult::ParsedJSONCalculation(request) => {
+                        info!("Parsed json request: {:#?}", request);
+
+                        let response = evaluate_expr_json(&request);
+
+                        response
+                    }
+                    RequestResult::ParsedJSONCommand(request) => {
+                        info!("Got a command. Killing for now! TODO ");
+                        panic!("TODO");
+                    }
+                    RequestResult::Error(err) => {
+                        info!("Found err: {}", err);
+                        panic!("TODO");
+                    }
+                };
+
+                response
+            },
+            RequestType::ASYNC => {
+                panic!("TODO");
+            },
+
+        };
+
+        response
     }
 }
 
