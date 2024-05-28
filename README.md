@@ -24,6 +24,7 @@ V3.5
 
 V4
  - [ ] Read a .txt file that contains custom functions signatures. Client will call them and in server, user will define them.
+       - [ ] Parse comment and enum from .txt into a .rs file that gets imported with both client and server
  - [ ] They should implement pack and unpack trait
 
 V5
