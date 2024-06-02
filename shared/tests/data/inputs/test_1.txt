@@ -2,6 +2,6 @@
 // COMMENT 2
 
 ENUM enumExample
-valOne u32 1
-valTwo u32 2
+valOne
+valTwo
 ENDENUM

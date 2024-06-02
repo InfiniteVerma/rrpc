@@ -3,19 +3,19 @@
  * 2. write to a .rs file
  *
  */
-use std::{env, error, fs, process, str::FromStr};
+use std::{env, error, fs, process};
 // TODO add logging
 
-#[derive(Debug)]
-enum CustomDataTypes {
-    ENUM,
-    STRUCT,
-}
+//#[derive(Debug)]
+//enum CustomDataTypes {
+//    ENUM,
+//    STRUCT,
+//}
 
-struct EnumContent {
-    name: String,
-    variants: Vec<String>
-}
+//struct EnumContent {
+//    name: String,
+//    variants: Vec<String>
+//}
 
 const FILE_NAME: &str = "gen.rs";
 
@@ -52,7 +52,7 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
     let out_path = out_dir 
         .join(FILE_NAME);
 
-    //println!("Reading TXT file {:?}", file_path);
+    println!("Reading TXT file {:?}", file_path);
 
     let contents = fs::read_to_string(file_path).expect(&format!("Could not read {} file", inp_txt_file_path));
 
