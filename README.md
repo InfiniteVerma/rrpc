@@ -23,7 +23,7 @@ V3
 V3.5
  - [ ] Proper error handling
  - [ ] Refactor. Try to understand more about designing code in rust.
- - [ ] Findw hy rustfmt doesn't work via ::Command
+ - [ ] Find why rustfmt doesn't work via ::Command
 
 V4
  - [x] Read from a .txt file and write to a .rs file
@@ -31,23 +31,23 @@ V4
  - [x] Support enum
  - [x] Support struct with basic data types (int and string)
 
-V4.5
+V5
  - [ ] Support functions
  - [ ] They should implement pack and unpack trait
 
-V5
+V6
  - [ ] Build shared libraries and link them
  - [ ] Using above .txt cons, signatures of txt functions will be available to client and definition in server
  - [ ] How would a user pass this?
  - [ ] Horizontal and vertical scaling?
 
-V6
+V7
  - [ ] Parse a language instead of simply structs and enums?
 
-V6
+V8
  - [ ] Do computation in parts and then aggregate?
 
-V7
+V9
  - [ ] Example project using the rpc crate
 
 #### Design
