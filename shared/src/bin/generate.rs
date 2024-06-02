@@ -3,13 +3,18 @@
  * 2. write to a .rs file
  *
  */
-use std::{fs, env, process, error};
+use std::{env, error, fs, process, str::FromStr};
 // TODO add logging
 
 #[derive(Debug)]
 enum CustomDataTypes {
     ENUM,
     STRUCT,
+}
+
+struct EnumContent {
+    name: String,
+    variants: Vec<String>
 }
 
 const FILE_NAME: &str = "gen.rs";
@@ -65,52 +70,114 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
 /*
  * If find ENUM, loop till ENDENUM and every line should have a member of the enum
  *
- *
  */
 // TODO improving error, parse using recursive decent? - not needed. we don't have nested types
 fn parse(contents: String) -> String {
     let mut write_output = String::new();
     let lines: Vec<&str> = contents.split('\n').collect();
     let mut i = 0;
+    let mut enums_defined: Vec<String> = Vec::new();
 
     write_output.push_str("//gen.rs - This is generated rs file, DO NOT edit manually.\n\n");
 
     while i < lines.len() {
         let line = lines[i].trim();
-        println!("Read line: {}", line);
+        println!("Read line >> {}:{}", i, line);
 
         if line.starts_with("//") {
-            println!("Comment, skipping");
+            //println!("Comment, skipping");
             i += 1;
             continue;
         }
 
         if line.starts_with("ENUM") {
-            let enum_name = line[4..].trim();
-
-            if enum_name.len() < 2 {
-                println!("ERROR enum name is not present");
-                process::exit(1);
-            }
-
-            println!("Found ENUM Block name: {}", enum_name);
-
-            i += 1;
-            while i < lines.len() {
-                let enum_content = lines[i].trim();
-                if enum_content.starts_with("ENDENUM") {
-                    println!("Found ENDENUM Block");
-                    break;
+            let (enum_str, new_i) = match consume_enum(lines.clone(), i, &mut enums_defined) {
+                Ok(x) => x,
+                Err(err) => {
+                    panic!("Error: {}", err);
                 }
+            };
 
-                println!("Enum content: {}", enum_content);
-                i+= 1;
-            }
+            println!("enum_str >> \n---{}\n --, new_i: {}", enum_str, new_i);
+
+            write_output.push_str(&enum_str);
+            i = new_i;
         }
 
-        i+= 1;
+        i += 1;
 
     }
 
     write_output
+}
+
+fn consume_enum(lines: Vec<&str>, i: usize, enums_defined: &mut Vec<String>) -> Result<(String, usize), String> {
+
+    let line = lines[i];
+    let mut i: usize = i;
+
+    let mut out_str: String = String::new();
+
+    let enum_name = line[4..].trim();
+
+    if enum_name.len() < 2 {
+        return Err(format!("ERROR enum name is not present"));
+    }
+
+    println!("Found ENUM Block name: {}", enum_name);
+
+    if enums_defined.contains(&enum_name.to_string()) {
+        return Err(format!("ERROR: enum {} is already defined in previous enums", enum_name));
+    }
+
+    out_str.push_str("\n");
+
+    out_str.push_str("#[derive(Debug)]\n");
+    out_str.push_str(format!("enum {} {{\n", enum_name).as_str());
+
+    enums_defined.push(enum_name.to_string());
+
+    i += 1;
+
+    let mut found_end: bool = false;
+    let mut contains_variant: bool = false;
+
+    while i < lines.len() {
+        let enum_content = lines[i].trim();
+
+        // each line should have one word with only alphanumeric characters
+        let is_alpha: bool = enum_content.chars().all(|c| c.is_alphanumeric());
+        if is_alpha != true {
+            return Err(format!("ERROR: line {} contains something other than alphanumeric chars", enum_content));
+        }
+
+        // first char needs to be an alphabet to satisfy rust syntax rules
+        let first_char: char = enum_content.chars().next().unwrap();
+        if first_char.is_alphabetic() != true {
+            return Err(format!("ERROR: enum variant first char is not alphabetic: {}", enum_content));
+        }
+
+        if enum_content.starts_with("ENDENUM") {
+            println!("Found ENDENUM Block");
+            out_str.push_str("}\n");
+            found_end = true;
+            break;
+        }
+
+        contains_variant = true;
+
+        out_str.push_str(format!("  {},\n", enum_content).as_str());
+
+        i += 1;
+    }
+
+    if contains_variant != true {
+        return Err(format!("ERROR: could not find one variant in enum"));
+    }
+
+    if i == lines.len() && found_end != true {
+        return Err(format!("ERROR: Could not find ENDENUM"));
+    }
+
+    Ok((out_str, i))
 }
