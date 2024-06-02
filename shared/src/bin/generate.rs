@@ -17,20 +17,34 @@ const FILE_NAME: &str = "gen.rs";
 fn main() {
     println!("Starting generate.rs");
 
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 3 
+    {
+        println!("ERROR: txt file path or out dir not specified! args count: {}", args.len() - 1);
+        process::exit(1);
+    }
+
+    let inp_txt_file_path = &args[1];
+    let out_dir_path = &args[2];
+
+    println!("file_path: {}", inp_txt_file_path);
+    println!("out_dir_path: {}", out_dir_path);
+
     let current_dir = env::current_dir().expect("Failed to get current directory");
+    let out_dir = current_dir.join(out_dir_path);
 
-    // TODO clarify filepath to this thing
     let file_path = current_dir
-        .join("test.txt");
+        .join(inp_txt_file_path);
 
-    let out_path = current_dir
+    let out_path = out_dir 
         .join(FILE_NAME);
 
-    println!("Reading TXT file {:?}", file_path);
+    //println!("Reading TXT file {:?}", file_path);
 
-    let contents = fs::read_to_string(file_path).expect("Could not read test.txt file");
+    let contents = fs::read_to_string(file_path).expect(&format!("Could not read {} file", inp_txt_file_path));
 
-    //println!("{}", contents);
+    println!("Contents: \n{}", contents);
 
     let write_output = parse(contents);
 
@@ -44,7 +58,7 @@ fn main() {
  *
  *
  */
-// TODO improving error, parse using recursive decent?
+// TODO improving error, parse using recursive decent? - not needed. we don't have nested types
 fn parse(contents: String) -> String {
     let mut write_output = String::new();
     let lines: Vec<&str> = contents.split('\n').collect();
