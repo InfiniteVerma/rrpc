@@ -23,12 +23,13 @@ V3
 V3.5
  - [ ] Proper error handling
  - [ ] Refactor. Try to understand more about designing code in rust.
+ - [ ] Findw hy rustfmt doesn't work via ::Command
 
 V4
  - [x] Read from a .txt file and write to a .rs file
  - [x] Add test infra to test multiple scenarios
  - [x] Support enum
- - [ ] Support struct with basic data types
+ - [x] Support struct with basic data types (int and string)
 
 V4.5
  - [ ] Support functions
