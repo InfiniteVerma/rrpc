@@ -4,6 +4,7 @@
  *
  */
 use std::{env, error, fs, process};
+use std::process::Command;
 // TODO add logging
 
 //#[derive(Debug)]
@@ -63,6 +64,13 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
     let _ = fs::write(out_path, write_output); 
 
     println!("generate.rs finished. Generated {} file", FILE_NAME);
+
+    let _ = Command::new("rustfmt")
+        .args(&[FILE_NAME])
+        .output()
+        .expect(&format!("Failed to run rustfmt on {}", FILE_NAME));
+
+    println!("rustfmt {} finished", FILE_NAME);
 
     Ok(())
 }
