@@ -3,7 +3,7 @@
  * 2. write to a .rs file
  *
  */
-use std::{fs, env, process};
+use std::{fs, env, process, error};
 // TODO add logging
 
 #[derive(Debug)]
@@ -28,6 +28,13 @@ fn main() {
     let inp_txt_file_path = &args[1];
     let out_dir_path = &args[2];
 
+    if let Err(e) = run(inp_txt_file_path, out_dir_path) {
+        eprintln!("generate.rs error: {}", e);
+        process::exit(1);
+    }
+}
+
+fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error::Error>> {
     println!("file_path: {}", inp_txt_file_path);
     println!("out_dir_path: {}", out_dir_path);
 
@@ -51,6 +58,8 @@ fn main() {
     let _ = fs::write(out_path, write_output); 
 
     println!("generate.rs finished. Generated {} file", FILE_NAME);
+
+    Ok(())
 }
 
 /*
