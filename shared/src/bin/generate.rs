@@ -7,17 +7,6 @@ use std::process::Command;
 use std::{env, error, fs, process};
 // TODO add logging
 
-//#[derive(Debug)]
-//enum CustomDataTypes {
-//    ENUM,
-//    STRUCT,
-//}
-
-//struct EnumContent {
-//    name: String,
-//    variants: Vec<String>
-//}
-
 const FILE_NAME: &str = "gen.rs";
 const SUPPORT_DATA_TYPES: [&str; 2] = ["INT", "STRING"];
 
@@ -72,13 +61,16 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
         .output()
         .expect(&format!("Failed to run rustfmt on {}", FILE_NAME));
 
+    let _ = Command::new("sync")
+        .output()
+        .expect(&format!("Failed to run sync"));
+
     println!("rustfmt {} finished", FILE_NAME);
 
     Ok(())
 }
 
-// STRUCT parsing. start with int and string
-// create a struct for LIST<int> and LIST<String>
+// TODO create a struct for LIST<int> and LIST<String>
 /*
  * If find ENUM, loop till ENDENUM and every line should have a member of the enum
  *

@@ -1,0 +1,7 @@
+// COMMENT
+// COMMENT 2
+
+STRUCT structName
+INT intvar 
+STRING str
+ENDSTRUCT
