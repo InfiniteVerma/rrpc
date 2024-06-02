@@ -2,6 +2,8 @@
 
 A rust library that implements RPC. Just a project to help me learn rust.
 
+TODO add an excalidraw diagram of compilation steps
+
 #### Plan
 
 V1
@@ -23,12 +25,18 @@ V3.5
  - [ ] Refactor. Try to understand more about designing code in rust.
 
 V4
- - [ ] Read a .txt file that contains custom functions signatures. Client will call them and in server, user will define them.
-       - [ ] Parse comment and enum from .txt into a .rs file that gets imported with both client and server
+ - [x] Read from a .txt file and write to a .rs file
+ - [x] Add test infra to test multiple scenarios
+ - [x] Support enum
+ - [ ] Support struct with basic data types
+
+V4.5
+ - [ ] Support functions
  - [ ] They should implement pack and unpack trait
 
 V5
- - [ ] Custom functions, signatures of which are available to client and definition in server
+ - [ ] Build shared libraries and link them
+ - [ ] Using above .txt cons, signatures of txt functions will be available to client and definition in server
  - [ ] How would a user pass this?
  - [ ] Horizontal and vertical scaling?
 

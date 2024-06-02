@@ -67,6 +67,8 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
     Ok(())
 }
 
+// STRUCT parsing. start with int and string
+// create a struct for LIST<int> and LIST<String>
 /*
  * If find ENUM, loop till ENDENUM and every line should have a member of the enum
  *
