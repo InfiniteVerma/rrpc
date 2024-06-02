@@ -6,3 +6,5 @@ enum enumExample {
   valOne,
   valTwo,
 }
+pub trait RpcFunctions {
+}

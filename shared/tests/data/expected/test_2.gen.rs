@@ -6,3 +6,5 @@ struct structName {
 intvar: i64,
 str: String,
 }
+pub trait RpcFunctions {
+}

@@ -4,11 +4,41 @@
  *
  */
 use std::process::Command;
-use std::{env, error, fs, process};
+use std::{env, error, fs, process, str::FromStr};
 // TODO add logging
 
 const FILE_NAME: &str = "gen.rs";
 const SUPPORT_DATA_TYPES: [&str; 2] = ["INT", "STRING"];
+
+// TODO use below instead of above list
+#[derive(Debug)]
+enum Type {
+    INT,
+    STRING,
+    EMPTY,
+}
+
+impl FromStr for Type {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "INT" => Ok(Type::INT),
+            "STRING" => Ok(Type::STRING),
+            _ => Err(()),
+        }
+    }
+}
+
+impl Type {
+    fn to_rust_type(&self) -> String {
+        match self {
+            Type::INT => "i64".to_string(),
+            Type::STRING => "String".to_string(),
+            Type::EMPTY => "()".to_string(),
+        }
+    }
+}
 
 fn main() {
     println!("Starting generate.rs");
@@ -61,9 +91,9 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
         .output()
         .expect(&format!("Failed to run rustfmt on {}", FILE_NAME));
 
-    let _ = Command::new("sync")
-        .output()
-        .expect(&format!("Failed to run sync"));
+    //let _ = Command::new("sync")
+    //    .output()
+    //    .expect(&format!("Failed to run sync"));
 
     println!("rustfmt {} finished", FILE_NAME);
 
@@ -82,12 +112,20 @@ fn parse(contents: String) -> String {
     let mut i = 0;
     let mut enums_defined: Vec<String> = Vec::new();
     let mut structs_defined: Vec<String> = Vec::new();
+    let mut funcs_defined: Vec<String> = Vec::new();
+
+    let mut functions_str: String = String::new();
 
     write_output.push_str("//gen.rs - This is generated rs file, DO NOT edit manually.\n\n");
 
     while i < lines.len() {
         let line = lines[i].trim();
         println!("Read line >> {}:{}", i, line);
+
+        if line == "\n" || line.len() == 0 {
+            i += 1;
+            continue;
+        }
 
         if line.starts_with("//") {
             //println!("Comment, skipping");
@@ -119,10 +157,27 @@ fn parse(contents: String) -> String {
 
             write_output.push_str(&struct_str);
             i = new_i;
+        } else if line.starts_with("FUNCTION") {
+            let (func_str, new_i) = match consume_function(lines.clone(), i, &mut funcs_defined) {
+                Ok(x) => x,
+                Err(err) => {
+                    panic!("Error: {}", err);
+                }
+            };
+
+            println!("func_str >> \n---{}\n --, new_i: {}", func_str, new_i);
+            functions_str.push_str(&func_str);
+            i = new_i;
+        } else {
+            panic!("Unsupported line found: {}", line);
         }
 
         i += 1;
     }
+
+    write_output.push_str("pub trait RpcFunctions {\n"); // TODO make this name a parameter?
+    write_output.push_str(&functions_str);
+    write_output.push_str("}");
 
     write_output
 }
@@ -132,7 +187,6 @@ fn consume_enum(
     i: usize,
     enums_defined: &mut Vec<String>,
 ) -> Result<(String, usize), String> {
-
     let line = lines[i];
     let mut i: usize = i;
 
@@ -216,7 +270,6 @@ fn consume_struct(
     i: usize,
     structs_defined: &mut Vec<String>,
 ) -> Result<(String, usize), String> {
-
     let line = lines[i];
     let mut i: usize = i;
 
@@ -306,6 +359,143 @@ fn consume_struct(
     if i == lines.len() && found_end != true {
         return Err(format!("ERROR: Could not find ENDSTRUCT"));
     }
+
+    Ok((out_str, i))
+}
+
+fn consume_function(
+    lines: Vec<&str>,
+    i: usize,
+    funcs_defined: &mut Vec<String>,
+) -> Result<(String, usize), String> {
+    let line = lines[i];
+    let mut i: usize = i;
+
+    let mut out_str: String = String::new();
+
+    let mut params: Vec<(Type, String)> = Vec::new();
+    let mut return_type: Type = Type::EMPTY;
+
+    // TODO check for spacing like "FUNCTION test test 2"
+    let func_name = line["FUNCTION".len()..].trim();
+
+    if func_name.len() < 2 {
+        return Err(format!("ERROR func name is not present"));
+    }
+
+    println!("Found FUNCTION Block name: {}", func_name);
+
+    if funcs_defined.contains(&func_name.to_string()) {
+        return Err(format!(
+            "ERROR: func {} is already defined in previous funcs",
+            func_name
+        ));
+    }
+
+    out_str.push_str("\n");
+
+    //out_str.push_str(format!("func {} {{\n", func_name).as_str());
+
+    funcs_defined.push(func_name.to_string());
+
+    i += 1;
+
+    let mut found_end: bool = false;
+    let mut contains_variant: bool = false;
+
+    /*
+     * Each line should be of below type:
+     *  - IN <type> <var name>
+     *  - OUT <type> (optional)
+     *  - ENDFUNCTION
+     *
+     *  This loop builds the params list until ENDFUNCTION is reached
+     */
+    while i < lines.len() {
+        let func_content = lines[i].trim();
+
+        let tokens_per_line: Vec<&str> = func_content.split(" ").collect();
+
+        if func_content.starts_with("ENDFUNCTION") {
+            println!("Found ENDFUNCTION Block");
+            found_end = true;
+            break;
+        }
+
+        if func_content.starts_with("IN") && tokens_per_line.len() != 3
+            || func_content.starts_with("OUT") && tokens_per_line.len() != 2
+        {
+            return Err(format!(
+                "ERROR: func parsing failed at line: {}",
+                func_content
+            ));
+        }
+
+        println!("{:#?}", tokens_per_line);
+
+        // verify data type at this line is supported
+        if SUPPORT_DATA_TYPES.contains(&tokens_per_line[1]) != true {
+            return Err(format!(
+                "ERROR: func parsing failed at line: {}. Data type not supported",
+                func_content
+            ));
+        }
+
+        if tokens_per_line[0] == "IN" {
+            // push to params list
+
+            params.push((
+                Type::from_str(tokens_per_line[1]).unwrap(),
+                tokens_per_line[2].to_string(),
+            ));
+        } else if tokens_per_line[0] == "OUT" {
+            // params is done. this specifies return type. peek next line here only
+
+            return_type = Type::from_str(tokens_per_line[1]).unwrap();
+
+            // verify next line is ENDFUNCTION
+            // TODO idk rethink below
+            i += 1;
+            let func_content = lines[i].trim();
+            if func_content.contains("ENDFUNCTION") != true {
+                return Err(format!(
+                    "ERROR: func parsing failed at line: {}. ENDFUNCTION not at next line to OUT",
+                    func_content
+                ));
+            }
+            i -= 1;
+        } else {
+            return Err(format!(
+                "ERROR: func parsing failed at line: {}",
+                func_content
+            ));
+        }
+
+        contains_variant = true;
+
+        i += 1;
+    }
+
+    if contains_variant != true {
+        return Err(format!("ERROR: could not find one variant in func"));
+    }
+
+    if i == lines.len() && found_end != true {
+        return Err(format!("ERROR: Could not find ENDFUNCTION"));
+    }
+
+    out_str.push_str(format!("  fn {} (", func_name).as_str());
+
+    // fn test(var: int
+    for (type_enum, var) in &params {
+        out_str.push_str(format!(" {}: {}", var, Type::to_rust_type(type_enum)).as_str());
+        out_str.push_str(", ");
+    }
+
+    out_str.push_str(")");
+    out_str.push_str(format!(" -> {} {{\n", Type::to_rust_type(&return_type)).as_str());
+    out_str.push_str("    unimplemented!();\n");
+    out_str.push_str("  }\n");
 
     Ok((out_str, i))
 }

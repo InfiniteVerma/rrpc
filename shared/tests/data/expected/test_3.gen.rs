@@ -12,3 +12,5 @@ enum enumName {
   intvar,
   var2,
 }
+pub trait RpcFunctions {
+}
