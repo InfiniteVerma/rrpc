@@ -1,3 +1,4 @@
+use core::panic;
 /*
  * 1. read from txt file
  * 2. write to a .rs file
@@ -5,9 +6,13 @@
  */
 use std::process::Command;
 use std::{env, error, fs, process, str::FromStr};
+
+use serde_json::{json, to_string};
 // TODO add logging
 
-const FILE_NAME: &str = "gen.rs";
+const CLIENT_GEN_FILE: &str = "client_gen.rs";
+// TODO implement server gen
+const SERVER_GEN_FILE: &str = "server_gen.rs";
 const SUPPORT_DATA_TYPES: [&str; 2] = ["INT", "STRING"];
 
 // TODO use below instead of above list
@@ -60,6 +65,12 @@ fn main() {
         eprintln!("generate.rs error: {}", e);
         process::exit(1);
     }
+
+    //const FUNC: &str = "test_func";
+    //let vec_try = Vec::from());
+    //let mut vec_try = Vec::new();
+    //vec_try.push((String::from_str("var1").unwrap(), Operand::Int(2)));
+    //println!("{}", pack(FUNC, vec_try));
 }
 
 fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error::Error>> {
@@ -71,7 +82,7 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
 
     let file_path = current_dir.join(inp_txt_file_path);
 
-    let out_path = out_dir.join(FILE_NAME);
+    let out_path = out_dir.join(CLIENT_GEN_FILE);
 
     println!("Reading TXT file {:?}", file_path);
 
@@ -84,28 +95,22 @@ fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error:
 
     let _ = fs::write(out_path, write_output);
 
-    println!("generate.rs finished. Generated {} file", FILE_NAME);
+    println!("generate.rs finished. Generated {} file", CLIENT_GEN_FILE);
 
     let _ = Command::new("rustfmt")
-        .args(&[FILE_NAME])
+        .args(&[CLIENT_GEN_FILE])
         .output()
-        .expect(&format!("Failed to run rustfmt on {}", FILE_NAME));
+        .expect(&format!("Failed to run rustfmt on {}", CLIENT_GEN_FILE));
 
     //let _ = Command::new("sync")
     //    .output()
     //    .expect(&format!("Failed to run sync"));
 
-    println!("rustfmt {} finished", FILE_NAME);
+    println!("rustfmt {} finished", CLIENT_GEN_FILE);
 
     Ok(())
 }
 
-// TODO create a struct for LIST<int> and LIST<String>
-/*
- * If find ENUM, loop till ENDENUM and every line should have a member of the enum
- *
- */
-// TODO improving error, parse using recursive decent? - not needed. we don't have nested types
 fn parse(contents: String) -> String {
     let mut write_output = String::new();
     let lines: Vec<&str> = contents.split('\n').collect();
@@ -117,6 +122,8 @@ fn parse(contents: String) -> String {
     let mut functions_str: String = String::new();
 
     write_output.push_str("//gen.rs - This is generated rs file, DO NOT edit manually.\n\n");
+    write_output.push_str("use serde_json::{json};\n");
+    write_output.push_str("use std::{fmt, str::FromStr};\n");
 
     while i < lines.len() {
         let line = lines[i].trim();
@@ -177,7 +184,9 @@ fn parse(contents: String) -> String {
 
     write_output.push_str("pub trait RpcFunctions {\n"); // TODO make this name a parameter?
     write_output.push_str(&functions_str);
-    write_output.push_str("}");
+    write_output.push_str("}\n\n");
+
+    write_output.push_str(PACK_FUNC_STR);
 
     write_output
 }
@@ -494,8 +503,66 @@ fn consume_function(
 
     out_str.push_str(")");
     out_str.push_str(format!(" -> {} {{\n", Type::to_rust_type(&return_type)).as_str());
-    out_str.push_str("    unimplemented!();\n");
+    out_str.push_str(format!("    let func_name: String = String::from_str(\"{}\").unwrap();\n", func_name).as_str());
+
+    out_str.push_str("    let operands = vec![");
+    for (type_enum, var) in &params {
+
+        let operand_type = match type_enum {
+            Type::INT => "Operand::Int(
+            Type::STRING => "String",
+            Type::EMPTY => panic!("This should not happen"),
+        };
+
+        out_str.push_str(format!("( String::from_str(\"{}\").unwrap(), {} ),\n ", var, operand_type).as_str());
+    }
+
+    out_str.push_str("];\n");
+
+    out_str.push_str("    let json_str = pack(func_name, operands);\n");
     out_str.push_str("  }\n");
 
     Ok((out_str, i))
 }
+
+const PACK_FUNC_STR: &str = r#"
+
+enum Operand {
+    Int(i64),
+    Str(String),
+}
+
+impl fmt::Display for Operand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+       match self {
+           Operand::Int(value) => write!(f, "{}", value),
+           Operand::Str(value) => write!(f, "\"{}\"", value),
+       }
+    }
+}
+
+fn pack(func_name: String, operands: Vec<(String, Operand)>) -> String {
+
+    let json_operands: Vec<_> = operands
+        .iter()
+        .map(|(key, value)| json!({key: value.to_string()}))
+        .collect();
+
+    let json_data = json!({
+        "fn": func_name,
+        "operands": json_operands 
+    });
+
+    serde_json::to_string(&json_data).unwrap()
+}
+"#;
+
+const CALL_PACK_STR : &str = r#"
+
+    let vec_try = Vec::from());
+    let mut vec_try = Vec::new();
+    vec_try.push();
+
+    let json_string: String = pack(func_name, vec!);
+"#;
+

@@ -33,21 +33,26 @@ V4
 
 V5
  - [ ] Support functions
+ - [ ] Use json to pack and unpack
  - [ ] They should implement pack and unpack trait
 
 V6
+ - [ ] Crate logic cleanup. Have a single crate?
+ - [ ] Import it and try using it to generate .rs files
+
+V7
  - [ ] Build shared libraries and link them
  - [ ] Using above .txt cons, signatures of txt functions will be available to client and definition in server
  - [ ] How would a user pass this?
  - [ ] Horizontal and vertical scaling?
 
-V7
+V8
  - [ ] Parse a language instead of simply structs and enums?
 
-V8
+V9
  - [ ] Do computation in parts and then aggregate?
 
-V9
+V10
  - [ ] Example project using the rpc crate
 
 #### Design
@@ -58,46 +63,13 @@ Rust translation:
  - Each type will be a type in rust
  - Pack and Unpack trait that all will implement
 
-Example
--------
-
-STRUCT CALC
-int operand1 
-int operand2
-string operator
-ENDSTRUCT
-
--->
-
-trait RPC {
-    fn pack(&self) -> String;
-    fn unpack(&String) -> &self;
-}
-
-struct CALC {
-    operand1: int,
-    operant2: int,
-    operator: string,
-}
-
-impl RPC for CALC {
-
-    fn pack(&self) -> String {
-        return in string
-    }
-
-    fn unpack(&self) -> Self {
-        return in struct
-    }
-}
-
 #### End Goal
 
-client
- - 
-
-server
- - 
+ - user imports this crate as a dependency
+ - make a .txt file with the specified IDL
+ - make a small 'script.rs' to generate code
+   - generates all the files
+ - user codes their client + server implementation around it
 
 #### References
  - https://doc.rust-lang.org/book/ch20-01-single-threaded.html
