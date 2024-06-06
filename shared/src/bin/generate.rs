@@ -65,12 +65,6 @@ fn main() {
         eprintln!("generate.rs error: {}", e);
         process::exit(1);
     }
-
-    //const FUNC: &str = "test_func";
-    //let vec_try = Vec::from());
-    //let mut vec_try = Vec::new();
-    //vec_try.push((String::from_str("var1").unwrap(), Operand::Int(2)));
-    //println!("{}", pack(FUNC, vec_try));
 }
 
 fn run(inp_txt_file_path: &str, out_dir_path: &str) -> Result<(), Box<dyn error::Error>> {
@@ -124,6 +118,11 @@ fn parse(contents: String) -> String {
     write_output.push_str("//gen.rs - This is generated rs file, DO NOT edit manually.\n\n");
     write_output.push_str("use serde_json::{json};\n");
     write_output.push_str("use std::{fmt, str::FromStr};\n");
+    write_output.push_str("use std::io::{self, Read, Write};\n");
+    write_output.push_str("use std::net::TcpStream;\n");
+
+    write_output.push_str(PACK_FUNC_STR);
+    write_output.push_str("\n\n");
 
     while i < lines.len() {
         let line = lines[i].trim();
@@ -185,8 +184,6 @@ fn parse(contents: String) -> String {
     write_output.push_str("pub trait RpcFunctions {\n"); // TODO make this name a parameter?
     write_output.push_str(&functions_str);
     write_output.push_str("}\n\n");
-
-    write_output.push_str(PACK_FUNC_STR);
 
     write_output
 }
@@ -509,23 +506,50 @@ fn consume_function(
     for (type_enum, var) in &params {
 
         let operand_type = match type_enum {
-            Type::INT => "Operand::Int(
-            Type::STRING => "String",
+            Type::INT => format!("Operand::Int({})", var),
+            Type::STRING => format!("Operand::Str({})", var),
             Type::EMPTY => panic!("This should not happen"),
         };
 
         out_str.push_str(format!("( String::from_str(\"{}\").unwrap(), {} ),\n ", var, operand_type).as_str());
     }
 
-    out_str.push_str("];\n");
+    out_str.push_str("];\n\n");
 
-    out_str.push_str("    let json_str = pack(func_name, operands);\n");
+    out_str.push_str("    let json_str = pack(func_name, operands);\n\n");
+    out_str.push_str("    let client = Client::new(8080);\n\n");
+    out_str.push_str("    client.send_async(json_str.as_str()).unwrap();\n");
     out_str.push_str("  }\n");
 
     Ok((out_str, i))
 }
 
 const PACK_FUNC_STR: &str = r#"
+pub struct Client {
+    //input_type: InputType; // TODO
+    port: u32,
+}
+
+impl Client {
+
+    pub fn new(port: u32) -> Self {
+        Client { port }
+    }
+
+    /// Sends a ASYNC command to the server
+    ///
+    /// This is a nonblocking call. Client doesn't wait for a response.
+    pub fn send_async(&self, expression: &str) -> Result<(), io::Error> {
+
+        let address = format!("127.0.0.1:{}", self.port);
+
+        let mut stream = TcpStream::connect(address)?;
+
+        stream.write_all(expression.as_bytes())?;
+
+        Ok(())
+    }
+}
 
 enum Operand {
     Int(i64),
@@ -556,13 +580,3 @@ fn pack(func_name: String, operands: Vec<(String, Operand)>) -> String {
     serde_json::to_string(&json_data).unwrap()
 }
 "#;
-
-const CALL_PACK_STR : &str = r#"
-
-    let vec_try = Vec::from());
-    let mut vec_try = Vec::new();
-    vec_try.push();
-
-    let json_string: String = pack(func_name, vec!);
-"#;
-
