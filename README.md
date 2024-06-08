@@ -1,6 +1,6 @@
 #### rrpc
 
-A rust library that implements RPC. RPC is used in distributed computing to execute a function in a different address space but written as if it's a normal function call.
+A rust library that implements Remote Procedure Calls. RPC is used in distributed computing to execute a function in a different address space but written as if it's a normal function call.
 
 Just a project to help me learn rust.
 
