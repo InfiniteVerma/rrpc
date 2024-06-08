@@ -1,7 +1,0 @@
-// Comment
-// This tests parsing comments and enum types
-
-ENUM test_enum
-val1 u32 1
-val2 u32 2
-ENDENUM

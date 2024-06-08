@@ -21,11 +21,6 @@ V3
  - [x] Multiple clients. To speed up, server listens and spawns a short lived thread to execute each request from a pool?
  - [x] If sync, server main thread executes and returns. If async, dispatches a worker thread to do the job
 
-V3.5
- - [ ] Proper error handling
- - [ ] Refactor. Try to understand more about designing code in rust.
- - [ ] Find why rustfmt doesn't work via ::Command
-
 V4
  - [x] Read from a .txt file and write to a .rs file
  - [x] Add test infra to test multiple scenarios
@@ -49,13 +44,17 @@ V7
  - [ ] Horizontal and vertical scaling?
 
 V8
- - [ ] Parse a language instead of simply structs and enums?
+ - [x] Example project using the rpc crate
 
 V9
- - [ ] Do computation in parts and then aggregate?
+ - [ ] Proper error handling
+ - [ ] Refactor. Try to understand more about designing code in rust.
 
 V10
- - [ ] Example project using the rpc crate
+ - [ ] Parse a language instead of simply structs and enums?
+
+V11
+ - [ ] Do computation in parts and then aggregate?
 
 #### Design
 

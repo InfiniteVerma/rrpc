@@ -1,5 +1,0 @@
-STRUCT calc 
-int operand1 
-int operand2
-string operator
-ENDSTRUCT
