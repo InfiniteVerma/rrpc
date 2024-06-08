@@ -2,7 +2,8 @@
 
 A rust library that implements RPC. Just a project to help me learn rust.
 
-TODO add an excalidraw diagram of compilation steps
+![Untitled-2024-02-03-1338](https://github.com/InfiniteVerma/rrpc/assets/45547198/52d11371-482c-4d4c-8d77-d03cb7d5b8a4)
+
 
 #### Plan
 
