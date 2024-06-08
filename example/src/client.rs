@@ -9,5 +9,6 @@ fn main() {
     env::set_var("RUST_LOG", "info");
 
     let client = generated::Client::new(8000);
-    <() as RpcFunction>::my_func(client, 1);
+    <() as RpcFunction>::hello_world(&client, 1);
+    <() as RpcFunction>::area_of_square(&client, 10, 20);
 }

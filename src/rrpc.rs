@@ -184,14 +184,18 @@ fn parse_client(contents: &str) -> String {
         i += 1;
     }
 
-    for (decl, def) in functions_vec {
-        write_output.push_str("pub trait RpcFunction {\n");
+    write_output.push_str("pub trait RpcFunction {\n");
+    for (decl, def) in &functions_vec {
         write_output.push_str(decl.as_str());
-        write_output.push_str("}\n");
-        write_output.push_str("impl RpcFunction for () {\n");
-        write_output.push_str(def.as_str());
-        write_output.push_str("}\n\n");
     }
+
+    write_output.push_str("}\n");
+    write_output.push_str("impl RpcFunction for () {\n");
+
+    for (decl, def) in &functions_vec {
+        write_output.push_str(def.as_str());
+    }
+    write_output.push_str("}\n\n");
 
     write_output.push_str(DUMMY_CLIENT_MAIN);
 
@@ -583,8 +587,8 @@ fn consume_function_client(
         return Err(format!("ERROR: Could not find ENDFUNCTION"));
     }
 
-    decl_str.push_str(format!("  fn {} (client: Client, ", func_name).as_str());
-    out_str.push_str(format!("  fn {} (client: Client, ", func_name).as_str());
+    decl_str.push_str(format!("  fn {} (client: &Client, ", func_name).as_str());
+    out_str.push_str(format!("  fn {} (client: &Client, ", func_name).as_str());
 
     for (type_enum, var) in &params {
         decl_str.push_str(format!(" {}: {}", var, Type::to_rust_type(type_enum)).as_str());

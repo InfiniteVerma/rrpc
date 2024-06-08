@@ -1,3 +1,8 @@
-FUNCTION my_func
+FUNCTION hello_world 
 IN INT var1
+ENDFUNCTION
+
+FUNCTION area_of_square
+IN INT x
+IN INT y
 ENDFUNCTION
