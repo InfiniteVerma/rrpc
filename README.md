@@ -38,13 +38,14 @@ V5
  - [x] Test with dummy mains
 
 V6
- - [ ] Crate logic cleanup. Have a single crate?
- - [ ] Import it and try using it to generate .rs files
+ - [x] Crate logic cleanup. Have a single crate?
+ - [x] Import it and try using it to generate .rs files
+ - [ ] Fix client packing
 
 V7
- - [ ] Build shared libraries and link them
- - [ ] Using above .txt cons, signatures of txt functions will be available to client and definition in server
- - [ ] How would a user pass this?
+ - [ ] ~~Build shared libraries and link them~~
+ - [x] Using above .txt cons, signatures of txt functions will be available to client and definition in server
+ - [x] How would a user pass this?
  - [ ] Horizontal and vertical scaling?
 
 V8
