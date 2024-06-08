@@ -8,9 +8,7 @@ use std::process::Command;
 use std::{env, error, fs, process, str::FromStr};
 
 // TODO add logging
-
 const CLIENT_GEN_FILE: &str = "client_gen.rs";
-// TODO implement server gen
 const SERVER_GEN_FILE: &str = "server_gen.rs";
 const SUPPORT_DATA_TYPES: [&str; 2] = ["INT", "STRING"];
 
@@ -115,7 +113,8 @@ fn parse_client(contents: &str) -> String {
     let mut structs_defined: Vec<String> = Vec::new();
     let mut funcs_defined: Vec<String> = Vec::new();
 
-    let mut functions_str: String = String::new();
+    //let mut functions_vec: Vec<(&str, &str)> = Vec::new();
+    let mut functions_vec: Vec<(String, String)> = Vec::new();
 
     write_output.push_str("//gen.rs - This is generated rs file, DO NOT edit manually.\n\n");
     write_output.push_str("use serde::{Serialize, Deserialize};\n");
@@ -168,15 +167,15 @@ fn parse_client(contents: &str) -> String {
             write_output.push_str(&struct_str);
             i = new_i;
         } else if line.starts_with("FUNCTION") {
-            let (func_str, new_i) = match consume_function_client(lines.clone(), i, &mut funcs_defined) {
-                Ok(x) => x,
+            let (func_decl, func_str, new_i) = match consume_function_client(lines.clone(), i, &mut funcs_defined) {
+                Ok((func_decl, func_str, new_i)) => (func_decl, func_str, new_i),
                 Err(err) => {
                     panic!("Error: {}", err);
                 }
             };
 
             println!("func_str >> \n---{}\n --, new_i: {}", func_str, new_i);
-            functions_str.push_str(&func_str);
+            functions_vec.push((func_decl, func_str));
             i = new_i;
         } else {
             panic!("Unsupported line found: {}", line);
@@ -185,9 +184,14 @@ fn parse_client(contents: &str) -> String {
         i += 1;
     }
 
-    write_output.push_str("pub trait RpcFunction {\n"); // TODO make this name a parameter?
-    write_output.push_str(&functions_str);
-    write_output.push_str("}\n\n");
+    for (decl, def) in functions_vec {
+        write_output.push_str("pub trait RpcFunction {\n");
+        write_output.push_str(decl.as_str());
+        write_output.push_str("}\n");
+        write_output.push_str("impl RpcFunction for () {\n");
+        write_output.push_str(def.as_str());
+        write_output.push_str("}\n\n");
+    }
 
     write_output.push_str(DUMMY_CLIENT_MAIN);
 
@@ -460,11 +464,12 @@ fn consume_function_client(
     lines: Vec<&str>,
     i: usize,
     funcs_defined: &mut Vec<String>,
-) -> Result<(String, usize), String> {
+) -> Result<(String, String, usize), String> {
     let line = lines[i];
     let mut i: usize = i;
 
     let mut out_str: String = String::new();
+    let mut decl_str: String = String::new();
 
     let mut params: Vec<(Type, String)> = Vec::new();
     let mut return_type: Type = Type::EMPTY;
@@ -486,6 +491,7 @@ fn consume_function_client(
     }
 
     out_str.push_str("\n");
+    decl_str.push_str("\n");
 
     //out_str.push_str(format!("func {} {{\n", func_name).as_str());
 
@@ -577,14 +583,18 @@ fn consume_function_client(
         return Err(format!("ERROR: Could not find ENDFUNCTION"));
     }
 
-    out_str.push_str(format!("  fn {} (", func_name).as_str());
+    decl_str.push_str(format!("  fn {} (client: Client, ", func_name).as_str());
+    out_str.push_str(format!("  fn {} (client: Client, ", func_name).as_str());
 
-    // fn test(var: int
     for (type_enum, var) in &params {
+        decl_str.push_str(format!(" {}: {}", var, Type::to_rust_type(type_enum)).as_str());
+        decl_str.push_str(", ");
+
         out_str.push_str(format!(" {}: {}", var, Type::to_rust_type(type_enum)).as_str());
         out_str.push_str(", ");
     }
 
+    decl_str.push_str(");\n\n");
     out_str.push_str(")");
     out_str.push_str(format!(" -> {} {{\n", Type::to_rust_type(&return_type)).as_str());
     out_str.push_str(format!("    let func_name: String = String::from_str(\"{}\").unwrap();\n", func_name).as_str());
@@ -604,11 +614,11 @@ fn consume_function_client(
     out_str.push_str("];\n\n");
 
     out_str.push_str("    let json_str = pack(func_name, operands);\n\n");
-    out_str.push_str("    let client = Client::new(8080);\n\n");
+    //out_str.push_str("    let client = Client::new(8080);\n\n");
     out_str.push_str("    client.send_async(json_str.as_str()).unwrap();\n");
     out_str.push_str("  }\n");
 
-    Ok((out_str, i))
+    Ok((decl_str, out_str, i))
 }
 
 fn consume_function_server(
@@ -809,17 +819,12 @@ impl fmt::Display for Operand {
     }
 }
 
-fn pack(func_name: String, operands: Vec<(String, Operand)>) -> String {
+fn pack(func: String, operands: Vec<(String, Operand)>) -> String {
 
-    let json_operands: Vec<_> = operands
-        .iter()
-        .map(|(key, value)| json!({key: value.to_string()}))
-        .collect();
-
-    let json_data = json!({
-        "func": func_name,
-        "operands": json_operands 
-    });
+    let json_data = RpcPacked {
+        func,
+        operands,
+    };
 
     serde_json::to_string(&json_data).unwrap()
 }
@@ -970,13 +975,8 @@ const DUMMY_CLIENT_MAIN: &str = r#"
 // Dummy client main. For Testing. TODO comment via a flag?
 // -----------------------------------------------
 //fn main() {
-//    let json_inp = RpcPacked 
-//        { 
-//            func: String::from("addAsyncFunc"),
-//            operands: vec![(String::from("var1"), Operand::Int(1))]
-//        };
 //    let client = Client::new(8000);
-//    let _ = client.send_async(serde_json::to_string::<RpcPacked>(&json_inp).unwrap().as_str());
+//    <() as RpcFunction>::my_func(client, 1);
 //}
 "#;
 

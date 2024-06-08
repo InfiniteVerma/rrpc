@@ -1,4 +1,5 @@
 use generated::{FunctionRegistry, RpcFunction};
+use std::env;
 
 mod generated {
     include!("generated/server_gen.rs");
@@ -14,6 +15,7 @@ impl RpcFunction for my_func{
 }
 
 fn main() {
+    env::set_var("RUST_LOG", "info");
     let mut registry = FunctionRegistry::new();
     registry.register("my_func", my_func);
     let server = generated::Server::new(8000, registry);

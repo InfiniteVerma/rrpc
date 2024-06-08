@@ -9,7 +9,6 @@ fn main() {
         panic!("rrpc binary is not present!");
     }
 
-
     let status = Command::new("../target/debug/rrpc")
         .arg(input_file)
         .arg(out_dir)
