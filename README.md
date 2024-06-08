@@ -35,13 +35,12 @@ V5
 V6
  - [x] Crate logic cleanup. Have a single crate?
  - [x] Import it and try using it to generate .rs files
- - [ ] Fix client packing
+ - [x] Fix client packing
 
 V7
  - [ ] ~~Build shared libraries and link them~~
  - [x] Using above .txt cons, signatures of txt functions will be available to client and definition in server
  - [x] How would a user pass this?
- - [ ] Horizontal and vertical scaling?
 
 V8
  - [x] Example project using the rpc crate
@@ -51,9 +50,8 @@ V9
  - [ ] Refactor. Try to understand more about designing code in rust.
 
 V10
+ - [ ] Horizontal and vertical scaling?
  - [ ] Parse a language instead of simply structs and enums?
-
-V11
  - [ ] Do computation in parts and then aggregate?
 
 #### Design
