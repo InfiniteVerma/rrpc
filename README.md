@@ -8,9 +8,9 @@ Just a project to help me learn rust.
 
 #### Usage
 
-1. clone the repo
+1. Clone the repo
 
-2. Build it to create rrpc binary
+2. Build it to create `rrpc` binary
 ```
 cargo build
 ```
@@ -22,9 +22,9 @@ cargo new <proj>
 
 4. Add rrpc as a build-dependency
 
-5. Design your IDL and write it input.txt (syntax below)
+5. Design your IDL and write it `input.txt` (syntax below)
 
-6. Write build.rs using which call rrpc to generate client_gen.rs and server_gen.rs
+6. Write build.rs using which call `rrpc` to generate `client_gen.rs` and `server_gen.rs`
 
 7. Use it in your source code
 
@@ -95,12 +95,14 @@ V8
 
 V9
  - [ ] Pass enum, structs created in .txt file in the functions
+ - [ ] Support synchronous functions
+ - [ ] Server should use worker threads for async functions and main thread for sync functions
 
-V9
+V10
  - [ ] Proper error handling
  - [ ] Refactor. Try to understand more about designing code in rust.
 
-V10
+V11
  - [ ] Horizontal and vertical scaling?
  - [ ] Parse a language instead of simply structs and enums?
  - [ ] Do computation in parts and then aggregate?
