@@ -1,9 +1,57 @@
 #### rrpc
 
-A rust library that implements RPC. Just a project to help me learn rust.
+A rust library that implements RPC. RPC is used in distributed computing to execute a function in a different address space but written as if it's a normal function call.
+
+Just a project to help me learn rust.
 
 ![Untitled-2024-02-03-1338](https://github.com/InfiniteVerma/rrpc/assets/45547198/52d11371-482c-4d4c-8d77-d03cb7d5b8a4)
 
+#### Usage
+
+1. clone the repo
+
+2. Build it to create rrpc binary
+```
+cargo build
+```
+
+3. Create your project
+```
+cargo new <proj>
+```
+
+4. Add rrpc as a build-dependency
+
+5. Design your IDL and write it input.txt (syntax below)
+
+6. Write build.rs using which call rrpc to generate client_gen.rs and server_gen.rs
+
+7. Use it in your source code
+
+Refer to example/ for a working solution.
+
+#### Syntax
+
+rrpc currently supports enum, struct and functions. Functions support just int and string as params (for now).
+
+Example .txt file:
+
+```
+FUNCTION my_func
+IN INT var1
+IN INT var2
+ENDFUNCTION
+
+ENUM test_enum
+val1 u32 1
+val2 u32 2
+ENDENUM
+
+STRUCT structName
+INT intvar 
+STRING str
+ENDSTRUCT
+```
 
 #### Plan
 
@@ -44,6 +92,9 @@ V7
 
 V8
  - [x] Example project using the rpc crate
+
+V9
+ - [ ] Pass enum, structs created in .txt file in the functions
 
 V9
  - [ ] Proper error handling
