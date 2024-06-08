@@ -105,19 +105,11 @@ V10
  - [ ] Parse a language instead of simply structs and enums?
  - [ ] Do computation in parts and then aggregate?
 
-#### Design
-
-Overview: Functions that take basic data type/structs/enum as input
-
-Rust translation:
- - Each type will be a type in rust
- - Pack and Unpack trait that all will implement
-
 #### End Goal
 
  - user imports this crate as a dependency
  - make a .txt file with the specified IDL
- - make a small 'script.rs' to generate code
+ - make a small 'build.rs' to generate code
    - generates all the files
  - user codes their client + server implementation around it
 
