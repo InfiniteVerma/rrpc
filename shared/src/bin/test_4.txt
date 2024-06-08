@@ -1,11 +1,11 @@
 // COMMENT
 // COMMENT 2
 
-FUNCTION addSyncFunc
-IN INT var1
-IN INT var2
-OUT INT
-ENDFUNCTION
+//FUNCTION addSyncFunc
+//IN INT var1
+//IN INT var2
+//OUT INT
+//ENDFUNCTION
 
 FUNCTION addAsyncFunc
 IN INT var1
