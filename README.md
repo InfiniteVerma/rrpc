@@ -32,9 +32,9 @@ V4
  - [x] Support struct with basic data types (int and string)
 
 V5
- - [ ] Support functions
- - [ ] Use json to pack and unpack
- - [ ] They should implement pack and unpack trait
+ - [x] Support functions
+ - [x] Use json to pack and unpack
+ - [x] Test with dummy mains
 
 V6
  - [ ] Crate logic cleanup. Have a single crate?
